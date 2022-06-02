@@ -336,105 +336,13 @@ for (season in 2013:2022){
 
 
 
-
-#BART TORVIK BOX SCORE DEBUG
-
-#Try 2008, 2009, 2014, 2015
-
-x_2008 <- jsonlite::fromJSON("https://barttorvik.com/getgamestats.php?year=2008")
-x_2008 <- dplyr::as_tibble(x_2008)
-
-x1_2008 <- x_2008 %>%
-  dplyr::filter(V22 == 1) %>%
-  dplyr::select(-c(7, 22, 31)) %>%
-  dplyr::rename_at(c(1:8, 19:27), ~ x1_unique) %>%
-  dplyr::rename_at(9:13, ~ paste0("team1_", gf_duplicates)) %>%
-  dplyr::rename_at(14:18, ~ paste0("team2_", gf_duplicates)) %>%
-  tidyr:: separate("V30", c("date" , "min", "team1", "team2",  paste0("team1_", box_score_duplicates), paste0("team2_", box_score_duplicates), "pos", 
-                            NA, "win", "loss"
-  ), ","
-  )               
-
-x2_2008 <- x_2008 %>%
-  dplyr::filter(V22 == 2) %>%
-  dplyr::select(c(8, 9, 20, 25, 28, 29)) %>%
-  dplyr::rename_all(~paste0("team2_", x2_unique)) %>%
-  dplyr::rename_at(4, ~"game_id")
-x_2008_f <- x1_2008 %>%
-  dplyr::full_join(x2_2008, by = "game_id") %>%
-  dplyr::mutate(
-    date = lubridate::mdy(date),
-    type = dplyr::case_when(
-      type == 0 ~ "nc",
-      type == 1 ~ "conf",
-      type == 2 ~ "conf_t",
-      type == 3 ~ "post",
-      TRUE ~ "nond1"
-    ))
-
-
-x_2009 <- jsonlite::fromJSON("https://barttorvik.com/getgamestats.php?year=2009")
-x_2009 <- dplyr::as_tibble(x_2009)
-
-x1_2009 <- x_2009 %>%
-  dplyr::filter(V22 == 1) %>%
-  dplyr::select(-c(7, 22, 31)) %>%
-  dplyr::rename_at(c(1:8, 19:27), ~ x1_unique) %>%
-  dplyr::rename_at(9:13, ~ paste0("team1_", gf_duplicates)) %>%
-  dplyr::rename_at(14:18, ~ paste0("team2_", gf_duplicates)) %>%
-  tidyr:: separate("V30", c("date" , "min", "team1", "team2",  paste0("team1_", box_score_duplicates), paste0("team2_", box_score_duplicates), "pos", 
-                            NA, "win", "loss"
-  ), ","
-  )               
-
-x2_2009 <- x_2009 %>%
-  dplyr::filter(V22 == 2) %>%
-  dplyr::select(c(8, 9, 20, 25, 28, 29)) %>%
-  dplyr::rename_all(~paste0("team2_", x2_unique)) %>%
-  dplyr::rename_at(4, ~"game_id")
-x_2009_f <- x1_2009 %>%
-  dplyr::full_join(x2_2009, by = "game_id") %>%
-  dplyr::mutate(
-    date = lubridate::mdy(date),
-    type = dplyr::case_when(
-      type == 0 ~ "nc",
-      type == 1 ~ "conf",
-      type == 2 ~ "conf_t",
-      type == 3 ~ "post",
-      TRUE ~ "nond1"
-    ))
-write_csv(x_2008, "tmp_x_2008.csv")
-write_csv(x_2008_f, "tmp_x_2008_f.csv")
-write_csv(x1_2008, "tmp_x1_2008.csv")
-write_csv(x2_2008, "tmp_x2_2008.csv")
-
-write_csv(x_2009, "tmp_x_2009.csv")
-write_csv(x_2009_f, "tmp_x_2009_f.csv")
-write_csv(x1_2009, "tmp_x1_2009.csv")
-write_csv(x2_2009, "tmp_x2_2009.csv")
-
-
-
-x <- x1 %>%
-  dplyr::full_join(x2, by = "game_id") %>%
-  dplyr::mutate(
-    date = lubridate::mdy(date),
-    type = dplyr::case_when(
-      type == 0 ~ "nc",
-      type == 1 ~ "conf",
-      type == 2 ~ "conf_t",
-      type == 3 ~ "post",
-      TRUE ~ "nond1"
-    ),
-    across(c(4:16), as.numeric),
-    #across(c(4:16, 18:19, 23:24, 26, 29:59,62:66), as.numeric),
-    loss = stringr::str_remove_all(loss, "]")
-  ) %>%
-  dplyr::relocate(dplyr::starts_with("team1"), .after="loss") %>%
-  dplyr::relocate(dplyr::starts_with("team2"), .after="team1_pts") %>%
-  dplyr::arrange(date)
-
-
-x <- as_tibble(lapply(x, function(y) {
-  gsub('\"', "", y)
-  }))
+#Pulling in all team names.
+files <- fs::dir_ls(glob = "torvik_box_score*") 
+df_names <- vroom(files) %>%
+  select(team1, team2)
+df_pivot <- df_names %>%
+  pivot_longer(everything()) %>%
+  select(value) %>%
+  count(value) %>%
+  arrange(n)
+write_csv(df_pivot, "team_names.csv")

@@ -11,11 +11,14 @@ library(cli)
 library(withr)
 library(readr)
 library(fs)
+library(vroom)
 #sportsdataverse_packages()
+#usethis::use_git_config(user.name = "ckohoutek", user.email = "ckohoutek@gmail.com")
+#credentials::set_github_pat("YourPAT")
 hoopR::load_mbb_team_box()
 
 #gamezoneR
-pbp <- gamezoneR::load_gamezone_pbp(gamezoneR:::available_seasons())
+pbp <- gamezoneR::load_gamezone_pbp(gamezoneR:::available_seasons())    
 length(unique(pbp$game_id))
 pbp %>% dplyr::filter(!is.na(loc_x)) %>% nrow()
 
@@ -346,3 +349,202 @@ df_pivot <- df_names %>%
   count(value) %>%
   arrange(n)
 write_csv(df_pivot, "team_names.csv")
+
+
+
+
+
+
+
+####NEEDS REVIEW!!!!
+#####################################################################
+### Checking what K value is best on train data set.              ###
+#####################################################################
+
+#Exclude first two years to allow stabilization
+k_loop <- c(25, 26, 27, 28, 29, 30, 31, 32, 33, 34)
+k_loop <- c(1, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 30, 31, 32, 35, 40, 45)
+k_loop <- c(26, 27, 28, 29, 31, 32)
+
+df_box_score_all <- tibble()
+for (k in k_loop){
+  for (year in 2009:2014){
+    df <- vroom(paste("results_eoy_", k, "_", year, "_mbb_box_score.csv", 
+                      sep = ""))
+    df$k <- k
+    df$year <- year
+    df <- df %>%
+      mutate(rounded = round(team2_odds, 2))
+    df_box_score_all <- df_box_score_all %>%
+      bind_rows(df)
+  }
+}
+df_summary_year <- df_box_score_all %>%
+  group_by(k, year, rounded) %>%
+  summarize(mean_line = mean(team2_odds),
+            mean_result = mean(result),
+            median_result = median(result),
+            n = n()) %>%
+  filter(k == 27)
+
+df_summary_all <- df_box_score_all %>%
+  group_by(k, rounded) %>%
+  summarize(mean_line = mean(team2_odds),
+            mean_result = mean(result),
+            median_result = median(result),
+            n = n()) %>%
+  #filter(k > 20,
+  #       k < 35)
+  filter(k == 27)
+
+ggplot(df_summary_all, aes(x=rounded, y=mean_result)) + geom_point(aes(color=as.factor(k))) + 
+  xlim(0,1) + ylim(0,1) + geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_summary_year, aes(x=rounded, y=mean_result)) + geom_point(aes(color=as_factor(year))) + 
+  xlim(0,1) + ylim(0,1) + geom_abline(intercept = 0, slope = 1)
+ggsave("prediction_accuracy_k7_plot.png")
+
+##########################
+###Log loss calculation
+#########################
+k_loop <- c(1, 5, 10, 15, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 35)
+k_loop <- c(1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 40)
+k_loop <- c(1, 5, 10, 15, 20, 25, 30, 35)
+df_box_score_all <- tibble()
+for (k in k_loop){
+  for (year in 2009:2014){
+    df <- vroom(paste("results_eoy_", k, "_", year, "_mbb_box_score.csv", 
+                      sep = ""))
+    df$year <- year
+    df$k <- k
+    #print(k)
+    #print(year)
+    df <- df %>%
+      mutate(eq1 = result * log(team2_odds),
+             eq2 = (1 - result) * log(1-team2_odds),
+             logloss = -(eq1 + eq2)
+      )
+    df <- df %>%
+      mutate(rounded = round(team2_odds, 2))
+    df_box_score_all <- df_box_score_all %>%
+      bind_rows(df)
+  }
+}
+df_summary_all <- df_box_score_all %>%
+  group_by(k) %>%
+  summarize(avg_logloss = mean(logloss),
+            median_logloss = median(logloss),
+            n = n())
+
+df_summary_year <- df_box_score_all %>%
+  group_by(k, year) %>%
+  summarize(avg_logloss = mean(logloss),
+            median_logloss = median(logloss),
+            n = n())
+
+df_summary_year_reduced <- df_box_score_all %>%
+  group_by(k, year) %>%
+  summarize(avg_logloss = mean(logloss),
+            median_logloss = median(logloss),
+            n = n()) %>%
+  filter(k>25,
+         k < 32)
+
+ggplot(df_summary_all, aes(x = k, y = avg_logloss)) + geom_point()
+ggplot(df_summary_year, aes(x = k, y = avg_logloss)) + 
+  geom_point(aes(color = factor(year))) 
+ggplot(df_summary_year, aes(x = k, y = avg_logloss)) + 
+  geom_point(aes(color = factor(year)))  + ylim(.51,.54)
+ggsave("k_evaluation_logloss.png")
+
+df_summary_year <- df_summary_year %>% 
+  filter(k < 40) %>%
+  filter(k > 20) %>%
+  mutate(k = as.character(k))
+ggplot(df_summary_year, aes(x = year, y = avg_logloss, color = k)) + 
+  geom_jitter()
+ggsave("k_evaluation_year_zoom.png")
+
+df_box_score_all <- df_box_score_all %>%
+  select(date, team_a, team_h, conference_a, conference_h, 
+         odds, result, k, year, eq1, eq2, logloss, rounded)
+
+
+df <- vroom("k_large_analysis.csv")
+df_summary_all <- df %>%
+  #  group_by(k, year) %>%
+  group_by(k) %>%
+  summarize(avg_logloss = mean(logloss),
+            median_logloss = median(logloss),
+            n = n())
+
+
+
+
+
+
+
+
+####################
+###Checking the percentiles over time.
+####################
+k_loop <- c(1, 5, 10, 15, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 35)
+k <- 1
+df_eoy_percentile <- tibble()
+for (k in k_loop){
+  #Read in master file that has all previous year ELO ranking. Should be just 
+  #the latest end of year.
+  df <- vroom(paste0("mbb_elo_", k, "_2014.csv")) %>%
+    #Select only the years and elo columns of interest.
+    select(team, elo_2008, elo_2009, elo_2010, elo_2011, elo_2012, elo_2013, 
+           elo_2014)
+  #pivot all elo's into one dateframe.
+  df <- df %>%
+    pivot_longer(!team, names_to = "year", values_to = "elo") %>%
+    group_by(year) %>%
+    #Calculate the percentiles for each year.
+    summarise(enframe(quantile(elo, c(.01, .1, 0.25, 0.5, 0.75, .9, .99)), 
+                      "quantile", "elo")) %>%
+    #Remove string "elo_" and cast year to int.
+    mutate(year = as.integer(str_replace_all(year, "elo_", "")),
+           k = k)
+  df_eoy_percentile <- df_eoy_percentile %>%
+    bind_rows(df)
+  
+}
+
+#Filter to 99% 
+df_eoy_99 <- df_eoy_percentile %>%
+  filter(quantile == "99%",
+         k > 20)
+ggplot(df_eoy_99, aes(x = year, y = elo, color = factor(k))) + 
+  geom_line() +geom_point()
+
+
+#Filter to 90% 
+df_eoy_90 <- df_eoy_percentile %>%
+  filter(quantile == "90%",
+         k > 20)
+ggplot(df_eoy_90, aes(x = year, y = elo, color = factor(k))) + 
+  geom_line() +geom_point()
+
+#Filter to 75% 
+df_eoy_75 <- df_eoy_percentile %>%
+  filter(quantile == "75%",
+         k > 20)
+ggplot(df_eoy_75, aes(x = year, y = elo, color = factor(k))) + 
+  geom_line() +geom_point()
+
+#Filter to 50% 
+df_eoy_50 <- df_eoy_percentile %>%
+  filter(quantile == "50%",
+         k > 20)
+ggplot(df_eoy_50, aes(x = year, y = elo, color = factor(k))) + 
+  geom_line() +geom_point()
+
+#Filter to 1% 
+df_eoy_1 <- df_eoy_percentile %>%
+  filter(quantile == "1%",
+         k > 20)
+ggplot(df_eoy_1, aes(x = year, y = elo, color = factor(k))) + 
+  geom_line() +geom_point()

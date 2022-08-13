@@ -402,7 +402,7 @@ ggplot(df_summary_all, aes(x=rounded, y=mean_result)) + geom_point(aes(color=as.
 
 ggplot(df_summary_year, aes(x=rounded, y=mean_result)) + geom_point(aes(color=as_factor(year))) + 
   xlim(0,1) + ylim(0,1) + geom_abline(intercept = 0, slope = 1)
-ggsave("prediction_accuracy_k7_plot.png")
+ggsave("prediction_accuracy_k27_plot.png")
 
 ##########################
 ###Log loss calculation
@@ -548,3 +548,12 @@ df_eoy_1 <- df_eoy_percentile %>%
          k > 20)
 ggplot(df_eoy_1, aes(x = year, y = elo, color = factor(k))) + 
   geom_line() +geom_point()
+
+
+
+#####################
+### ELO improvements analysis
+#####################
+
+#Look at year over year distribution. Density plot or violin plot.
+#If spread gets bigger, look into autocorrelation.

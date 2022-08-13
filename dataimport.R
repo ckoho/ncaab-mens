@@ -39,18 +39,20 @@ bart_expanded_box_score<- function(year = current_season()) {
       x <- as_tibble(lapply(x, function(y) {
         gsub('\"', "", y)
       }))
-      
       x1 <- x %>%
         dplyr::filter(V22 == 1) %>%
         dplyr::select(-c(7, 22, 31)) %>%
         dplyr::rename_at(c(1:8, 19:27), ~ x1_unique) %>%
         dplyr::rename_at(9:13, ~ paste0("team1_", gf_duplicates)) %>%
         dplyr::rename_at(14:18, ~ paste0("team2_", gf_duplicates)) %>%
-        tidyr:: separate("V30", c("date" , "min", "team1", "team2",  paste0("team1_", box_score_duplicates), paste0("team2_", box_score_duplicates), "pos", 
-                                  NA, "win", "loss"
-        ), ","
-        )               
-      
+        tidyr:: separate("V30", c("date" , "min", "team1", "team2",  
+                                  paste0("team1_", box_score_duplicates), 
+                                  paste0("team2_", box_score_duplicates), 
+                                  "pos"), ",") 
+      x1 <- x1 %>%
+        mutate(win = "",
+               loss = "")
+
       x2 <- x %>%
         dplyr::filter(V22 == 2) %>%
         dplyr::select(c(8, 9, 20, 25, 28, 29)) %>%
@@ -73,6 +75,10 @@ bart_expanded_box_score<- function(year = current_season()) {
         dplyr::relocate(dplyr::starts_with("team1"), .after="loss") %>%
         dplyr::relocate(dplyr::starts_with("team2"), .after="team1_pts") %>%
         dplyr::arrange(date)
+      x <- x %>%
+        mutate(win = if_else(team1_pts > team2_pts, team1, team2),
+               loss = if_else(team1_pts > team2_pts, team2, team1),)
+      
     }
   })}
 
@@ -112,19 +118,19 @@ for (season in 2008:2022){
            team1 = str_trim(team1))
   write_csv(df, paste0("torvik_box_score_", season, ".csv"))
   
-  #ESPN betting lines. Loading each espn available game id and pulling the lines
-  #for each available game. Only available post 2013
-  df_gi <- hoopR::load_mbb_team_box(season) %>%
-    select(game_id) %>%
-    group_by(game_id) %>%
-    summarise(n = n()) %>%
-    select(game_id)
-  df_line <- NULL
-  for (i in 1:nrow(df_gi)){
-    df_line <- df_line %>%
-      bind_rows(try(espn_mbb_lines(df_gi[[i,1]])))
-  }
-  write_csv(df_line, paste0("espn_line_information_", season, ".csv"))
+  # #ESPN betting lines. Loading each espn available game id and pulling the lines
+  # #for each available game. Only available post 2013
+  # df_gi <- hoopR::load_mbb_team_box(season) %>%
+  #   select(game_id) %>%
+  #   group_by(game_id) %>%
+  #   summarise(n = n()) %>%
+  #   select(game_id)
+  # df_line <- NULL
+  # for (i in 1:nrow(df_gi)){
+  #   df_line <- df_line %>%
+  #     bind_rows(try(espn_mbb_lines(df_gi[[i,1]])))
+  # }
+  # write_csv(df_line, paste0("espn_line_information_", season, ".csv"))
   
   # #Joins the total torvik box score and the ESPN line information into one data 
   # #frame. Torvik game_id changes in 2015 so need to join with different keys 

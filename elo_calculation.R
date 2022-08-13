@@ -109,8 +109,8 @@ year_elo_ratings <- function(df, df1, home_court, k){
            team2_conf, team2, team2_pts, team1_odds, team2_odds, result, line,
            year, adjust, team2_rating, team1_rating)
   
-  write_csv(df, paste0("results_eoy_", k, "_", season, "_mbb_box_score.csv"))
-  #write_csv(df, paste0("results_eoy_", season, "mbb_box_score.csv"))
+  #write_csv(df, paste0("results_eoy_", k, "_", season, "_mbb_box_score.csv"))
+  write_csv(df, paste0("results_eoy_", season, "_mbb_box_score.csv"))
   return(df1)
 }
 
@@ -122,20 +122,21 @@ k_loop <- c(1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 40)
 k_loop <- c(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 40)
 k_loop <- c(22, 23, 24, 26, 27, 28, 29, 31, 32, 33)
 #k_loop <- c(34)
-#k <- 25
+k <- 27
 #season <- 2008
 #This k loop is to be removed once values are chosen.
 for (k in k_loop){
   df_ratings <- vroom("mbb_elo_default.csv", altrep = FALSE)
   #for (season in 2008:2022){
-  for (season in 2008:2014){
+  for (season in 2008:2021){
     #Need to check 2022 home court advantage.
-    if (season == "2021"){
+    if (season == "2021" ){
       home_court <- 49
     }else{
       home_court <- 70
     }
-    df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
+    df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/torvik_box_score_", season, ".csv"))
+    #df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
     df_year_box_score$team1_odds <- 0
     df_year_box_score$team2_odds <- 0
     df_year_box_score$result <- 0
@@ -154,9 +155,9 @@ for (k in k_loop){
     #Set end of year ratings to year
     df_ratings <- df_ratings %>%
       mutate( !!elo_year := elo)
-    #write_csv(df_ratings, paste("mbb_elo_", season, ".csv", sep = ""))
-    write_csv(df_ratings, paste("mbb_elo_", k, "_", 
-                                season, ".csv", sep = ""))
+    write_csv(df_ratings, paste("mbb_elo_", season, ".csv", sep = ""))
+    #write_csv(df_ratings, paste("mbb_elo_", k, "_", 
+    #                            season, ".csv", sep = ""))
     
     #Regress to baseline for next year.
     #Regression calculation = 50% end of year, 3%0 n -1, and 20% mean (1500)

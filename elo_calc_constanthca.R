@@ -29,12 +29,12 @@ year_elo_ratings <- function(df, df1, home_court, k){
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating + home_court))/400))
     } else if (df[[j, "loc"]] == "N") {
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating))/400))
-
+      
     } else if (df[[j, "loc"]] == "H") {
       team2_win_per = 1 / (1 + 10 ^ (((team1_rating + home_court)- 
                                         (team2_rating))/400))
     }
-
+    
     df[[j, "team1_rating"]] <- team1_rating
     df[[j, "team2_rating"]] <- team2_rating
     df[[j, "team1_odds"]] <- 1 - team2_win_per
@@ -58,10 +58,10 @@ year_elo_ratings <- function(df, df1, home_court, k){
         df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
       df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]] <- 
         df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]] - adjust
-
+      
     }
     df[[j, "adjust"]] <- adjust
-
+    
     #Adjust records (games played, W/L, conf W/L, and elo rating through gp.)
     if(df[[j, "win"]] == team2 ){
       if (df[[j, "type"]] == "conf"){
@@ -98,7 +98,7 @@ year_elo_ratings <- function(df, df1, home_court, k){
     df1[[which(df1 == team1, arr.ind=TRUE)[1], 
          paste0("game", df1[[which(df1 == team1, arr.ind=TRUE)[1], "gp"]])]] <-
       df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
-  
+    
   }
   
   #Save df and return df1
@@ -114,13 +114,6 @@ year_elo_ratings <- function(df, df1, home_court, k){
 }
 
 
-#DEBUG
-k_loop <- c(1, 5, 10, 15, 20, 25, 30, 35, 40, 45)
-k_loop <- c(11, 12, 13, 14, 16, 17, 18, 19)
-k_loop <- c(1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 40)
-k_loop <- c(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 40)
-k_loop <- c(22, 23, 24, 26, 27, 28, 29, 31, 32, 33)
-#k_loop <- c(34)
 k <- 27
 #season <- 2008
 #This k loop is to be removed once values are chosen.
@@ -129,11 +122,7 @@ for (k in k_loop){
   #for (season in 2008:2022){
   for (season in 2008:2021){
     #Need to check 2022 home court advantage.
-    if (season == "2021" ){
-      home_court <- 49
-    }else{
-      home_court <- 70
-    }
+    home_court <- 70
     df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/torvik_box_score_", season, ".csv"))
     #df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
     df_year_box_score$team1_odds <- 0

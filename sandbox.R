@@ -12,6 +12,7 @@ library(withr)
 library(readr)
 library(fs)
 library(vroom)
+library(ggpmisc)
 #sportsdataverse_packages()
 #usethis::use_git_config(user.name = "ckohoutek", user.email = "ckohoutek@gmail.com")
 #credentials::set_github_pat("YourPAT")
@@ -555,5 +556,76 @@ ggplot(df_eoy_1, aes(x = year, y = elo, color = factor(k))) +
 ### ELO improvements analysis
 #####################
 
+# Home and home results.
+files <- fs::dir_ls(path = "../../Inputs/NCAA/", 
+                    regexp = "torvik_box_score.*.csv")
+df_torvik <- vroom(files) 
+df_torvik <- df_torvik %>%
+  filter(loc == "A")
+df_torvik <- df_torvik %>%
+  mutate(result = if_else(team2 == win, 1, 0)) %>%
+  select(team1, team2, result, season, team1_pts, team2_pts)
+df_repeat <- df_torvik %>%
+  inner_join(df_torvik, by = c("team1" = "team2", "team2" = "team1", 
+                        "season" = "season")) %>%
+  mutate(game1_diff = team2_pts.x - team1_pts.x,
+         game2_diff = team1_pts.y - team2_pts.y) 
+df_summary <- df_repeat %>%
+  group_by(game1_diff) %>%
+  summarise(game2_diff = mean(game2_diff),
+            n = n(),
+            result = mean(result.y)) %>%
+  filter(n > 100)
+  #filter(n > 27)
+df_summary <- df_summary %>%
+  mutate(rating_delta = (400 * log ((1 - result)/ result))/log(10)/2)
+  
+ggplot(df_summary, aes(x=game1_diff, y=game2_diff)) + 
+  #geom_point(aes(size=n)) +
+  geom_point() + 
+  scale_x_continuous(breaks= seq(-30,30, by=5), limits = c(-30,30)) + 
+  scale_y_continuous(breaks= seq(-10, 8, by=2), limits = c(-15,8)) + 
+  geom_hline(yintercept=0)
+
+ggplot(df_summary, aes(x=game1_diff, y=result)) + 
+  geom_point(aes(size=n)) + geom_hline(yintercept=.5)
+
+
+formula <- y ~ x
+ggplot(df_summary, aes(x=rating_delta, y=game2_diff)) + 
+  geom_point(aes(size=n)) +
+  geom_smooth(method = "lm", se = FALSE) + 
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = 0.15,
+               formula = formula, parse = TRUE, size = 3) +
+  geom_abline(aes(intercept = 0, slope = .0815))
+
+ggplot(df_summary, aes(x=rating_delta, y=game2_diff)) + 
+  geom_point(aes(size=n)) +
+  geom_abline(aes(intercept = 0, slope = .0815))
+
+#Elo results predicted odds (converted to line) versus results.
+
 #Look at year over year distribution. Density plot or violin plot.
 #If spread gets bigger, look into autocorrelation.
+
+
+
+
+
+
+#Convert team win percentage to line.
+for (season in 2008:2022){
+  df <- vroom(paste0("../../Inputs/NCAA/results_eoy_", season,
+                     "_mbb_box_score.csv"), altrep = FALSE)
+  df <- df %>%
+    mutate(rating_delta = (400 * log ((1 - team2_odds)/ team2_odds))/
+             log(10)/2) %>%
+    mutate(line = rating_delta * .0815)
+  
+  write_csv(df, paste0("../../Inputs/NCAA/results_eoy_", season,
+                       "_mbb_box_score.csv"))
+}
+df_summary <- df_summary %>%
+  mutate(rating_delta = (400 * log ((1 - result)/ result))/log(10)/2) %>%
+  mutate(line = raing_delta * .0815)

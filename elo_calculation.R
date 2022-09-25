@@ -17,30 +17,36 @@ library(fs)
 #df1 <- df_ratings
 year_elo_ratings <- function(df, df1, home_court, k){
   for (j in 1:nrow(df)) {
+    #Get each team name and rating .
     team1 = df[[j, "team1"]]
-    #print(team1)
     team1_rating = df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
     team2 = df[[j, "team2"]]
-    #print(team2)
     team2_rating = df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]]
     #Calculating home court advantage into win percentage. Rest of calculation 
-    #is the same.
+    #is the same. Line calculation also needs to factor in home court. Taking 
+    #rating delta time .0815 to get line.
     if (df[[j, "loc"]] == "A") {
-      team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating + home_court))/400))
+      team2_win_per = 1 / (1 + 10 ^ ((team1_rating - 
+                                        (team2_rating + home_court))/400))
+      df[[j, "line"]] <- (team1_rating - (team2_rating + home_court)) * .0815
+      
     } else if (df[[j, "loc"]] == "N") {
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating))/400))
-
+      df[[j, "line"]] <- (team1_rating - (team2_rating)) * .0815
     } else if (df[[j, "loc"]] == "H") {
       team2_win_per = 1 / (1 + 10 ^ (((team1_rating + home_court)- 
                                         (team2_rating))/400))
+      df[[j, "line"]] <- ((team1_rating + home_court) - 
+                            (team2_rating)) * .0815
+      
     }
-
+    #Put pre rating and odds into box score data frame.
     df[[j, "team1_rating"]] <- team1_rating
     df[[j, "team2_rating"]] <- team2_rating
     df[[j, "team1_odds"]] <- 1 - team2_win_per
     df[[j, "team2_odds"]] <- team2_win_per
-    #Need to convert win_per to line
-    #line <- ...
+
+    #Update elo rating based on game result.
     if (df[[j, "win"]] == team2) {
       df[[j, "result"]] <- 1
       #1 means team2 (home) win, 0 means team1 (road) win

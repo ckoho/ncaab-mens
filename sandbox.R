@@ -13,6 +13,9 @@ library(readr)
 library(fs)
 library(vroom)
 library(ggpmisc)
+library(gt)
+library(gtExtras)
+
 #sportsdataverse_packages()
 #usethis::use_git_config(user.name = "ckohoutek", user.email = "ckohoutek@gmail.com")
 #credentials::set_github_pat("YourPAT")
@@ -629,3 +632,302 @@ for (season in 2008:2022){
 df_summary <- df_summary %>%
   mutate(rating_delta = (400 * log ((1 - result)/ result))/log(10)/2) %>%
   mutate(line = raing_delta * .0815)
+
+
+
+#Compare adjust elo to regular elo lines
+df_elo <- tibble()
+#Looking at 2009-2014. Compute the score delta and the rounded odds.
+for (year in 2009:2014){
+  link <- paste0("C:/Users/ckoho/Documents/Inputs/NCAA/results_eoy_", 
+                 year, "_mbb_box_score.csv")
+  df <- vroom(link)
+  df <- df %>%
+    mutate(score = team2_pts - team1_pts,
+           rounded = round(team2_odds, 2))
+  df_elo <- df_elo %>%
+    bind_rows(df)
+}
+
+#Same for adjusted elo ratings. This path will move.
+df_aelo <- tibble()
+for (year in 2009:2014){
+  link <- paste0("results_eoy_", 
+                 year, "_mbb_box_score.csv")
+  df <- vroom(link)
+  df <- df %>%
+    mutate(score = team2_pts - team1_pts,
+           rounded = round(team2_odds, 2))
+  df_aelo <- df_aelo %>%
+    bind_rows(df)
+}
+
+#AELO needs results calculated.
+df_aelo <- df_aelo %>%
+  mutate(result = if_else(team2 == win, 1, 0))
+#compute actual win rate based on predicted odds.  
+df_elo_summary <- df_elo %>%
+  group_by(rounded) %>%
+  summarize(mean_line = mean(team2_odds),
+            mean_result = mean(result),
+            median_result = median(result),
+            n = n()) 
+df_aelo_summary <- df_aelo %>%
+  group_by(rounded) %>%
+  summarize(mean_line = mean(team2_odds),
+            mean_result = mean(result),
+            median_result = median(result),
+            n = n()) 
+
+ggplot(df_elo_summary, aes(x=rounded, y=mean_result)) + geom_point(aes()) + 
+  xlim(0,1) + ylim(0,1) + geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_aelo_summary, aes(x=rounded, y=mean_result)) + geom_point(aes()) + 
+  xlim(0,1) + ylim(0,1) + geom_abline(intercept = 0, slope = 1)
+
+df_elo <- df_elo %>%
+  mutate(rounded_line = -1 * round(line, 0))
+
+df_aelo <- df_aelo %>%
+  mutate(rounded_line = -1 * round(line, 0))
+
+df_elo_summary_line <- df_elo %>%
+  group_by(rounded_line) %>%
+  summarize(mean_line = mean(rounded_line),
+            mean_result = mean(score),
+            median_result = median(score),
+            n = n()) 
+df_aelo_summary_line <- df_aelo %>%
+  group_by(rounded_line) %>%
+  summarize(mean_line = mean(rounded_line),
+            mean_result = mean(score),
+            median_result = median(score),
+            n = n()) 
+
+ggplot(df_elo_summary_line, aes(x=rounded_line, y=mean_result)) + 
+  geom_point(aes(size = n)) +
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_aelo_summary_line, aes(x=rounded_line, y=mean_result)) +  
+  geom_point(aes(size = n)) +
+  geom_abline(intercept = 0, slope = 1)
+
+df1 <-df_elo_summary_line %>%
+  mutate(type = "ELO")
+df2 <-df_aelo_summary_line %>%
+  mutate(type = "AELO")
+
+df <- df1 %>%
+  bind_rows(df2) %>%
+  filter(n > 50)
+
+ggplot(df, aes(x=rounded_line, y=mean_result)) +  
+  geom_point(aes()) +
+  geom_abline(intercept = 0, slope = 1) + 
+  xlim(-30,30) + ylim(-30,30) +
+  facet_wrap(~ type)
+ggsave("elo_aleo_line_results.png")
+
+
+df1 <-df_elo_summary %>%
+  mutate(type = "ELO")
+df2 <-df_aelo_summary %>%
+  mutate(type = "AELO")
+
+df <- df1 %>%
+  bind_rows(df2) %>%
+  filter(n > 50)
+
+ggplot(df, aes(x=rounded, y=mean_result)) +  
+  geom_point(aes()) +
+  geom_abline(intercept = 0, slope = 1) + 
+  xlim(0,1) + ylim(0,1) +
+  facet_wrap(~ type)
+ggsave("elo_aleo_results.png")
+
+#Seeing how often team beat the calculated line based on the spread.
+df_elo1 <- df_elo %>%
+  mutate(beat_line = if_else(score > (-1 * line),1,0))
+
+
+df_elo1_summary <- df_elo1 %>%
+  group_by(rounded) %>%
+  summarize(mean_line = mean(team2_odds),
+            mean_result = mean(result),
+            median_result = median(result),
+            n = n(),
+            mean_beat_line = mean(beat_line))  %>%
+  filter(n > 50)
+
+
+ggplot(df_elo1_summary, aes(x=rounded, y=mean_beat_line)) + geom_point(aes()) 
+
+
+
+
+#############################
+### Violin Plot           ###
+#############################
+df_ranking <- vroom("C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_2021.csv", 
+                    altrep = FALSE)
+#Select just each end of year ranking.
+df_ranking <- df_ranking %>%
+  select(team,elo_2008, elo_2009, elo_2010, elo_2011, elo_2012, elo_2013, elo_2014, 
+         elo_2015, elo_2016, elo_2017, elo_2018, elo_2019, elo_2020, elo_2021) %>%
+  pivot_longer(!team, names_to = "year", values_to = "rating")
+
+#Violin plot of each year ratings.
+ggplot(df_ranking, aes(year, rating)) + geom_violin(adjust = .5) #+ geom_jitter()
+
+#Violin plot of each year ratings.
+df_ranking_percentile <- df_ranking %>% 
+  group_by(year) %>%  
+  summarise(quantile = scales::percent(c(.01, .05, 0.1, 0.25, 0.5, 0.75, 0.9, 
+                                         .95, 0.99)),
+            rating = quantile(rating, c(.01, .05, 0.1, 0.25, 0.5, 0.75, 0.9, 
+                                        .95, 0.99)))
+
+#Plotting percentiles over time to check trend.
+ggplot(df_ranking_percentile, aes(year, rating)) + 
+  geom_point(aes(color = as_factor(quantile))) 
+
+
+
+
+
+########################################################################
+###Log Loss calculation. Comparing autocor, default, line, and aelo. ###
+########################################################################
+
+#autocor
+files <- fs::dir_ls(path = "../../Inputs/NCAA/auto_corr/", 
+                    regexp = "results_eoy.*.csv")
+df_autocor <- vroom(files, altrep = FALSE)
+df_autocor <- df_autocor %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2)
+         )
+df_ac_sum <- df_autocor %>%
+  group_by(season) %>%
+  summarize(ac = mean(logloss))
+
+#default
+files <- fs::dir_ls(path = "../../Inputs/NCAA/", 
+                    regexp = "results_eoy.*.csv")
+df <- vroom(files, altrep = FALSE)
+df <- df %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2)
+  )
+df_def_sum <- df %>%
+  group_by(season) %>%
+  summarize(normal = mean(logloss))
+
+#aelo
+files <- fs::dir_ls(path = "../../Inputs/NCAA/aelo/", 
+                    regexp = "results_eoy.*.csv")
+df <- vroom(files, altrep = FALSE)
+df <- df %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2)
+  )
+df_aelo_sum <- df %>%
+  group_by(season) %>%
+  summarize(aelo = mean(logloss))
+
+#line
+files <- fs::dir_ls(path = "../../Inputs/NCAA/line/", 
+                    regexp = "results_eoy.*.csv")
+df <- vroom(files, altrep = FALSE)
+df <- df %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2)
+  )
+df_line_sum <- df %>%
+  group_by(season) %>%
+  summarize(line = mean(logloss))
+
+df1 <- df_def_sum %>%
+  left_join(df_ac_sum) %>%
+  left_join(df_aelo_sum) %>%
+  #left_join(df_line_sum) %>%
+  pivot_longer(!season, names_to = "group", values_to = "logloss")
+ggplot(df1, aes(x=season, y=logloss)) + geom_point(aes(color = group))
+ggsave("logloss_options_noline.png")
+
+
+
+
+#########################
+# AELO adjust value   ###
+#########################
+l_loop <- c(0, .01, .05, .1, .15, .2, .25, .3, .4, .5, .75)
+#This k loop is to be removed once values are chosen.
+df_all <- tibble()
+for (l in l_loop){
+  for (season in 2008:2021){
+      link <- paste0("../../Inputs/NCAA/aelo/results_eoy_", l, "_",
+                     season, "_mbb_box_score.csv")
+      df <- vroom(link)
+      df <- df %>%
+        mutate(eq1 = result * log(team2_odds),
+               eq2 = (1 - result) * log(1-team2_odds),
+               logloss = -(eq1 + eq2),
+               l = l
+        )
+        df_all <- df_all %>%
+          bind_rows(df)
+      
+  }
+}
+df_summary <- df_all %>%
+  group_by(l) %>%
+  summarize(logloss = mean(logloss))
+write_csv(df_summary, "aelo_logloss_all.csv")
+df_all %>%
+  group_by(l) %>%
+  summarize(logloss = mean(logloss)) %>%
+  gt() %>%
+  gt_color_rows(logloss,palette = "ggsci::default_gsea")
+df_all_summary <- df_all %>%
+  group_by(l, season) %>%
+  summarize(logloss = mean(logloss))
+ggplot(df_all_summary, aes(x=season, y=logloss)) + geom_point(aes(color = as_factor(l)))
+ggsave("aelo_ggplot_logloss.png")
+df_table <- df_all_summary %>%
+  pivot_wider(names_from = season, values_from = logloss)
+df_table %>%
+  gt() %>%
+  gt_color_rows(`2008`: `2021`,palette = "ggsci::default_gsea")  
+
+write_csv(df_table, "elo_adjust_logloss.csv")
+df_table <- df_all_summary %>%
+  filter(l < .4  ) %>%
+  pivot_wider(names_from = season, values_from = logloss)
+df_table %>%
+  gt() %>%
+  gt_color_rows(`2008`: `2021`,palette = "ggsci::default_gsea")  
+
+df_all_summary_reduced <- df_all_summary %>%
+  filter(l < .4 & l > .1 )
+ggplot(df_all_summary_reduced, aes(x=season, y=logloss)) + geom_point(aes(color = as_factor(l)))
+
+
+
+df_all_summary_reduced <- df_all %>%
+  group_by(l, season) %>%
+  summarize(logloss = mean(logloss)) %>%
+  filter(l < .4)
+ggplot(df_all_summary_reduced, aes(x=season, y=logloss)) + geom_point(aes(color = as_factor(l)))
+
+
+
+
+#### Reset games played
+df <- vroom("mbb_elo_2021.csv", altrep = FALSE)
+df[, 9:69]  <- NA
+

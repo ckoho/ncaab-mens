@@ -86,6 +86,7 @@ bart_expanded_box_score<- function(year = current_season()) {
 
 
 espn_mbb_box_score <- function(game_id){
+  print(game_id)
   summary_url <-
     "http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?"
   
@@ -94,9 +95,20 @@ espn_mbb_box_score <- function(game_id){
   full_url <- paste0(summary_url,
                      "event=", game_id)
   res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
   x = httr::status_code(res)
-  if(x != 200) stop("The API returned an error", call. = FALSE)
-  
+  if(x != 200) return(tibble())
+
   
   tryCatch(
     expr = {
@@ -139,7 +151,7 @@ espn_mbb_box_score <- function(game_id){
       ref1 = raw_play_df[["gameInfo"]][["officials"]][["fullName"]][1]
       ref2 = raw_play_df[["gameInfo"]][["officials"]][["fullName"]][2]
       ref3 = raw_play_df[["gameInfo"]][["officials"]][["fullName"]][3]
-      
+      conferencecompetition = raw_play_df[["header"]][["competitions"]][["conferenceCompetition"]]
       # if (homeAway1 == "home") {
       #
       #   homeTeamId = as.integer(raw_play_df[["header"]][["competitions"]][["competitors"]][[1]][['team']][['id']][1])
@@ -292,7 +304,6 @@ espn_mbb_box_score <- function(game_id){
                team1_totaltf = totalTechnicalFouls,
                team1_flagrant = flagrantFouls,
                team1_fouls = fouls,
-               team1_largestlead = largestLead,
                )
       teams2 <- teams2 %>%
         separate("fieldGoalsMade-fieldGoalsAttempted", c("team2_fgm", "team2_fga"))
@@ -317,7 +328,6 @@ espn_mbb_box_score <- function(game_id){
                team2_totaltf = totalTechnicalFouls,
                team2_flagrant = flagrantFouls,
                team2_fouls = fouls,
-               team2_largestlead = largestLead,
         )      
       
       df_teams_box_score <- dplyr::bind_cols(teams1, teams2)
@@ -351,7 +361,8 @@ espn_mbb_box_score <- function(game_id){
                venueid = venueid,
                city = city,
                state = state,
-               neutralsite = neutralsite
+               neutralsite = neutralsite,
+               conferencecompetition = conferencecompetition
                ) %>%
         janitor::clean_names() %>%
         dplyr::select(
@@ -378,7 +389,7 @@ espn_mbb_box_score <- function(game_id){
       
     }
   )
-  return(team_box_score)
+  return(df_teams_box_score)
 }
   
 #espn_mbb_lines pulls the lines for each game_id provided. Strips the 
@@ -410,15 +421,27 @@ espn_mbb_lines <- function(game_id){
 
 #Loads each available game id,
 espn_mbb_game_id_season <- function(season){
-df_gi <- hoopR::load_mbb_team_box(season) %>%
-  select(game_id) %>%
-  group_by(game_id) %>%
-  summarise(n = n()) %>%
-  select(game_id)
+  df_gi <- hoopR::load_mbb_team_box(season) %>%
+    select(game_id) %>%
+    group_by(game_id) %>%
+    summarise(n = n()) %>%
+    select(game_id)
+  return(df_gi)
 }
 
 
-#Loads ESPN betting information. Only available post 2013. 
+#Loads certain season box score
+espn_mbb_box_score_season <- function(season){
+  df_gi <- espn_mbb_game_id_season(season) 
+  df_gi <- df_gi %>%
+    filter(game_id != 400498871,
+           game_id != 400504050,
+           game_id != 400504620,
+           game_id != 400504634)
+  df_box_score <- bind_rows(map(df_gi$game_id,espn_mbb_box_score))
+  write_csv(df_box_score, paste0("espn_mbb_box_score_", season, ".csv"))
+
+}
 
 
 
@@ -477,8 +500,12 @@ for (season in 2008:2022){
   
 }
 
-
-for (season in 2008:2022){
+#Pull box scores for each season
+#for (season in 2006:2022){
+for (season in 2014:2023){
+  # https://www.espn.com/mens-college-basketball/boxscore/_/gameId/253292579
+  # http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=253292579
+  espn_mbb_box_score_season(season)
 
 }
 

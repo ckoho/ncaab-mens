@@ -1,5 +1,5 @@
-#elo_calculation.R
-#This file handles the importing and cleaning of data.
+#espn_adjusted_elo.R
+#Uses ESPN box scorea to calculate adjusted elo rankings. 
 
 #library(sportsdataverse)
 #library(gamezoneR)
@@ -10,12 +10,12 @@ library(tidyverse)
 library(readr)
 library(vroom)
 library(fs)
-#Want to use k=27
 
 #j <- 1
 #j <- 5
 #df <- df_year_box_score
 #df1 <- df_ratings
+#Starting here on CK 1/11!!!!
 year_elo_ratings <- function(df, df1, home_court, k, l){
   for (j in 1:nrow(df)) {
     #Get each team name and rating .
@@ -23,25 +23,19 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
     team1_rating = df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
     team2 = df[[j, "team2"]]
     team2_rating = df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]]
- 
+    
     #Calculating home court advantage into win percentage. Rest of calculation 
     #is the same. Line calculation also needs to factor in home court. Taking 
     #rating delta time .0815 to get line.
-    if (df[[j, "loc"]] == "A") {
-      team2_win_per = 1 / (1 + 10 ^ ((team1_rating - 
-                                        (team2_rating + home_court))/400))
-      df[[j, "line"]] <- (team1_rating - (team2_rating + home_court)) * .0815
+    if (df[[j, "neutralsite"]] == "FALSE") {
+      team1_win_per = 1 / (1 + 10 ^ ((team2_rating - 
+                                        (team1_rating + home_court))/400))
+      df[[j, "line"]] <- (team2_rating - (team1_rating + home_court)) * .0815
       
-    } else if (df[[j, "loc"]] == "N") {
+    } else if (df[[j, "neutralsite"]] == "TRUE") {
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating))/400))
-      df[[j, "line"]] <- (team1_rating - (team2_rating)) * .0815
-    } else if (df[[j, "loc"]] == "H") {
-      team2_win_per = 1 / (1 + 10 ^ (((team1_rating + home_court)- 
-                                        (team2_rating))/400))
-      df[[j, "line"]] <- ((team1_rating + home_court) - 
-                            (team2_rating)) * .0815
-      
-    }
+      df[[j, "line"]] <- (team2_rating - (team1_rating)) * .0815
+    } 
     #Put pre rating and odds into box score data frame.
     df[[j, "team1_rating"]] <- team1_rating
     df[[j, "team2_rating"]] <- team2_rating
@@ -49,18 +43,18 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
     df[[j, "team2_odds"]] <- team2_win_per
     
     #Update elo rating based on game result.
-    if (df[[j, "win"]] == team2) {
+    if (df[[j, "team1_score"]] > df[[j, "team2_score"]]) {
       #1 means team2 (home) win, 0 means team1 (road) win
       #>.5 is team2 (home) is favorite, <.5 is team1 (road) favorite
       df[[j, "result"]] <- 1
       
       #See if they cover the line.
-      if(df[[j, "team1_pts"]] - df[[j, "team2_pts"]] < df[[j, "line"]]){
-        adjust <- round((1 + l) * log(df[[j, "team2_pts"]] - df[[j, "team1_pts"]] +
-                                        1) * k * (1 - team2_win_per), 0)
+      if(df[[j, "team2_score"]] - df[[j, "team1_score"]] < df[[j, "line"]]){
+        adjust <- round((1 + l) * log(df[[j, "team1_score"]] - df[[j, "team2_score"]] +
+                                        1) * k * (1 - team1_win_per), 0)
       } else {
-        adjust <- round((1 - l) * log(df[[j, "team2_pts"]] - df[[j, "team1_pts"]] +
-                                        1) * k * (1 - team2_win_per), 0)
+        adjust <- round((1 - l) * log(df[[j, "team1_score"]] - df[[j, "team2_score"]] +
+                                        1) * k * (1 - team1_win_per), 0)
       }
       
       df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]] <- 
@@ -69,6 +63,7 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
         df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]]
     } else {
       #See if they cover the line.
+      #CK HERE NEED TO CHECK THIS ONE.
       if(df[[j, "team1_pts"]] - df[[j, "team2_pts"]] > df[[j, "line"]]){
         adjust <- round((1 + l) * log(df[[j, "team1_pts"]] - df[[j, "team2_pts"]] +
                                         1) * k * (team2_win_per), 0)
@@ -140,14 +135,13 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
 }
 
 
-#DEBUG
+#Debug
+season <- 2006
 k <- 27
-#l_loop <- c(.01, .05, .1, .15, .2, .25)
-#l_loop <- c(.3, .4, .5, .75)
 l <- .25
-season <- 2021
+
 df_ratings <- vroom("mbb_elo_default.csv", altrep = FALSE)
-for (season in 2008:2021){
+for (season in 2006:2021){
   #Need to check 2022 home court advantage.
   df_ratings[, 9:69]  <- NA
   if (season == "2021" ){
@@ -155,7 +149,7 @@ for (season in 2008:2021){
   }else{
     home_court <- 70
   }
-  df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/torvik_box_score_", season, ".csv"))
+  df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/espn_mbb_d1_box_score_", season, ".csv"))
   #df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
   df_year_box_score$team1_odds <- 0
   df_year_box_score$team2_odds <- 0

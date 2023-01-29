@@ -931,3 +931,6 @@ ggplot(df_all_summary_reduced, aes(x=season, y=logloss)) + geom_point(aes(color 
 df <- vroom("mbb_elo_2021.csv", altrep = FALSE)
 df[, 9:69]  <- NA
 
+
+
+

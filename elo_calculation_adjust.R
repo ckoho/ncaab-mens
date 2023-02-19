@@ -1,5 +1,5 @@
 #elo_calculation.R
-#This file handles the importing and cleaning of data.
+#This computes the ELO rnaking for MBB using torvik data.
 
 #library(sportsdataverse)
 #library(gamezoneR)
@@ -145,12 +145,15 @@ k <- 27
 #l_loop <- c(.01, .05, .1, .15, .2, .25)
 #l_loop <- c(.3, .4, .5, .75)
 l <- .25
-season <- 2021
-df_ratings <- vroom("mbb_elo_default.csv", altrep = FALSE)
-for (season in 2008:2021){
+season <- 2008
+df_ratings <- vroom("C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_default.csv", altrep = FALSE)
+season <- 2023
+df_ratings <- vroom("C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo.csv", altrep = FALSE)
+
+for (season in 2008:2023){
   #Need to check 2022 home court advantage.
   df_ratings[, 9:69]  <- NA
-  if (season == "2021" ){
+  if (season == "2021" | season == "2022" | season == "2023"   ){
     home_court <- 49
   }else{
     home_court <- 70
@@ -189,5 +192,5 @@ for (season in 2008:2021){
            confl = 0,
            gp = 0
     )
-  write_csv(df_ratings, "mbb_elo.csv")
+  write_csv(df_ratings, "C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo.csv")
 }

@@ -1,15 +1,15 @@
 #espn_adjusted_elo.R
 #Uses ESPN box scorea to calculate adjusted elo rankings. 
 
-#library(sportsdataverse)
-#library(gamezoneR)
-library(tidyverse)
-#library(jsonlite)
-#library(cli)
-#library(withr)
-library(readr)
-library(vroom)
-library(fs)
+##library(sportsdataverse)
+##library(gamezoneR)
+#library(tidyverse)
+##library(jsonlite)
+##library(cli)
+##library(withr)
+#library(readr)
+#library(vroom)
+#library(fs)
 
 #j <- 1
 #j <- 5

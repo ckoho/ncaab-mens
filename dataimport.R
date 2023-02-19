@@ -82,18 +82,76 @@ bart_expanded_box_score<- function(year = current_season()) {
     }
   })}
 
-#TORVIK BOX SCORE
-for (season in 2008:2023){
-  #First we get all the boxscore data for each available season.
-  df <- bart_expanded_box_score(season)
-  df <- df %>%
-    mutate(win = str_trim(win),
-           loss = str_trim(loss),
-           team2 = str_trim(team2),
-           team1 = str_trim(team1))
-  write_csv(df, paste0("torvik_box_score_", season, ".csv"))
-}
 
+espn_mbb_lines <-  function(game_id){
+  print(game_id)
+  summary_url <-
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?"
+  
+  ## Inputs
+  ## game_id
+  full_url <- paste0(summary_url,
+                     "event=", game_id)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  x = httr::status_code(res)
+  if(x != 200) return(tibble())
+  df_pickcenter <- tibble()
+  df_againstTheSpread <- tibble()
+  predictor_df <- tibble()
+  tryCatch(
+    expr = {
+      resp <- res %>%
+        httr::content(as = "text", encoding = "UTF-8")
+      
+      raw_summary <- jsonlite::fromJSON(resp)
+      if ("pickcenter" %in% names(raw_summary)) {
+        df_pickcenter <-
+          jsonlite::fromJSON(jsonlite::toJSON(raw_summary$pickcenter), flatten =
+                               TRUE) %>%
+          janitor::clean_names() %>%
+          dplyr::select(-"links",
+                        -"away_team_odds_win_percentage", 
+                        -"away_team_odds_average_score",
+                        -"away_team_odds_spread_record_wins",
+                        -"away_team_odds_spread_record_losses",
+                        -"away_team_odds_spread_record_pushes",
+                        -"away_team_odds_spread_record_summary",
+                        -"home_team_odds_win_percentage",
+                        -"home_team_odds_average_score",
+                        -"home_team_odds_spread_record_wins",
+                        -"home_team_odds_spread_record_losses",
+                        -"home_team_odds_spread_record_pushes",
+                        -"home_team_odds_spread_record_summary"
+          )
+      }
+    },
+    error = function(e) {
+      message(glue::glue(
+        "{Sys.time()}: Invalid arguments or no betting data available!"
+      ))
+    },
+    warning = function(w) {
+      
+    },
+    finally = {
+      
+    }
+    
+  )
+  return(df_pickcenter)
+  
+}
 
 espn_mbb_box_score <- function(game_id){
   print(game_id)
@@ -402,33 +460,6 @@ espn_mbb_box_score <- function(game_id){
   )
   return(df_teams_box_score)
 }
-  
-#espn_mbb_lines pulls the lines for each game_id provided. Strips the 
-#unnecessary information and only pulls the consensus line for simplicity.
-espn_mbb_lines <- function(game_id){
-  df <- NULL
-  try({
-    df <- hoopR::espn_mbb_team_box(game_id) %>% 
-      top_n(1) %>%
-      select(game_id, season, game_date, team_short_display_name, team_name, 
-             team_id, team_abbreviation, opponent_id, opponent_name, 
-             opponent_abbrev)
-    list_lines <- hoopR::espn_mbb_betting(game_id)
-    df1 <- list_lines[["pickcenter"]] %>%
-      filter(provider_name == "consensus") %>% 
-      select(details, over_under, spread,provider_id, provider_name,
-             away_team_odds_favorite, away_team_odds_underdog, 
-             away_team_odds_money_line, away_team_odds_spread_odds, 
-             away_team_odds_team_id, home_team_odds_favorite, 
-             home_team_odds_underdog, home_team_odds_money_line, 
-             home_team_odds_spread_odds, home_team_odds_team_id
-      )
-    df <- df %>%
-      bind_cols(df1)
-  })
-  return(df)
-} 
-
 
 #Loads each available game id,
 espn_mbb_game_id_season <- function(season){
@@ -472,6 +503,28 @@ espn_mbb_box_score_season <- function(season){
 #End ESPN Game ID
 
 
+#TORVIK BOX SCORE
+for (season in 2008:2023){
+  #First we get all the boxscore data for each available season.
+  df <- bart_expanded_box_score(season)
+  df <- df %>%
+    mutate(win = str_trim(win),
+           loss = str_trim(loss),
+           team2 = str_trim(team2),
+           team1 = str_trim(team1))
+  write_csv(df, paste0("torvik_box_score_", season, ".csv"))
+}
+
+#All betting lines
+for (season in 2008:2023){
+  # https://www.espn.com/mens-college-basketball/boxscore/_/gameId/253292579
+  # http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=253292579
+  df_gi <- espn_mbb_game_id_season(season) 
+  df_box_score <- bind_rows(map(df_gi$game_id,espn_mbb_lines))
+  write_csv(df_box_score, paste0("../../Inputs/NCAA/espn_mbb_betting_lines_", season, ".csv"))
+  
+  
+}
 
 
 

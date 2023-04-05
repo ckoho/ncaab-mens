@@ -82,7 +82,8 @@ bart_expanded_box_score<- function(year = current_season()) {
     }
   })}
 
-
+#game_id <- 401252483
+#game_id <- 273090235
 espn_mbb_lines <-  function(game_id){
   print(game_id)
   summary_url <-
@@ -107,8 +108,6 @@ espn_mbb_lines <-  function(game_id){
   x = httr::status_code(res)
   if(x != 200) return(tibble())
   df_pickcenter <- tibble()
-  df_againstTheSpread <- tibble()
-  predictor_df <- tibble()
   tryCatch(
     expr = {
       resp <- res %>%
@@ -134,6 +133,8 @@ espn_mbb_lines <-  function(game_id){
                         -"home_team_odds_spread_record_pushes",
                         -"home_team_odds_spread_record_summary"
           )
+        
+        
       }
     },
     error = function(e) {
@@ -149,6 +150,27 @@ espn_mbb_lines <-  function(game_id){
     }
     
   )
+  if ("pickcenter" %in% names(raw_summary)) {
+    df_name <- jsonlite::fromJSON(jsonlite::toJSON(raw_summary$boxscore$teams), flatten =
+                                    TRUE)
+    team1id = toupper(df_name[['team.id']][[1]])
+    team2id = toupper(df_name[['team.id']][[2]])
+    team1name = toupper(df_name[['team.location']][[1]])
+    team2name = toupper(df_name[['team.location']][[2]])
+    team1sname = toupper(df_name[['team.shortDisplayName']][[1]])
+    team2sname = toupper(df_name[['team.shortDisplayName']][[2]])
+    game_date = as.Date(substr(raw_summary[['header']][['competitions']][['date']], 0, 10))
+    
+    df_pickcenter$game_id <- game_id
+    df_pickcenter$team1_id <- team1id
+    df_pickcenter$team2_id <- team2id
+    df_pickcenter$team1_name <- team1name
+    df_pickcenter$team2_name <- team2name
+    df_pickcenter$team1_sname <- team1sname
+    df_pickcenter$team2_sname <- team2sname
+    df_pickcenter$date <- game_date
+  }
+  
   return(df_pickcenter)
   
 }
@@ -502,6 +524,9 @@ espn_mbb_box_score_season <- function(season){
 }
 #End ESPN Game ID
 
+############################
+# End of Functions
+############################
 
 #TORVIK BOX SCORE
 for (season in 2008:2023){
@@ -2091,3 +2116,21 @@ for(season in 2006:2023){
   
 
 }
+
+
+
+
+
+###################
+# NCAA play-by-play data
+#################################
+progressr::with_progress({
+  mbb_pbp <-  hoopR::load_mbb_pbp(2008)
+})
+
+future::plan("multisession")
+gamezoneR:::available_seasons()
+progressr::with_progress({
+  pbp <- gamezoneR::load_gamezone_pbp(gamezoneR:::available_seasons())
+})
+length(unique(pbp$game_id))

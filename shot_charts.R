@@ -1,5 +1,7 @@
 #shot charts.
 #Very much a work in progress.
+#https://www.owenlhjphillips.com/new-blog/2020/6/25/how-to-make-nba-shots-charts-in-r
+#https://github.com/toddwschneider/ballr/blob/master/hex_chart.R
 library(tidyverse)
 library(sportsdataverse)
 library(gamezoneR)

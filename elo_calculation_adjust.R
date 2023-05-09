@@ -1,4 +1,5 @@
 #elo_calculation.R
+#elo_calculation.R
 #This computes the ELO rnaking for MBB using torvik data.
 
 #library(sportsdataverse)
@@ -77,8 +78,8 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
                                         1) * k * (team2_win_per), 0)
       }
       
-      adjust <- round(log(df[[j, "team1_pts"]] - df[[j, "team2_pts"]] +
-                            1) * k * (team2_win_per), 0)
+      #adjust <- round(log(df[[j, "team1_pts"]] - df[[j, "team2_pts"]] +
+      #                      1) * k * (team2_win_per), 0)
       df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]] <- adjust +
         df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
       df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]] <- 

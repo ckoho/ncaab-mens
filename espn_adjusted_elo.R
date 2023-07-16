@@ -169,7 +169,7 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
     )
   
   #write_csv(df, paste0("results_eoy_", l, "_", season, "_mbb_box_score.csv"))
-  write_csv(df, paste0("results_eoy_", season, "_mbb_box_score.csv"))
+  write_csv(df, paste0("results_espn_eoy_", season, "_mbb_box_score.csv"))
   return(df1)
 }
 
@@ -211,7 +211,7 @@ for (season in 2006:2023){
   #Set end of year ratings to year
   df_ratings <- df_ratings %>%
     mutate( !!elo_year := elo)
-  write_csv(df_ratings, paste("mbb_elo_", season, ".csv", sep = ""))
+  write_csv(df_ratings, paste("mbb_elo_espn_", season, ".csv", sep = ""))
   #write_csv(df_ratings, paste("mbb_elo_", l, "_", 
   #                            season, ".csv", sep = ""))
   
@@ -226,5 +226,5 @@ for (season in 2006:2023){
            confl = 0,
            gp = 0
     )
-  write_csv(df_ratings, "mbb_elo.csv")
+  write_csv(df_ratings, "mbb_espn_elo.csv")
 }

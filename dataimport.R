@@ -555,7 +555,7 @@ for (season in 2008:2023){
 
 
 
-season <- 2010
+season <- 2023
 #Pull box scores for each season
 #for (season in 2006:2022){
 for (season in 2022:2023){

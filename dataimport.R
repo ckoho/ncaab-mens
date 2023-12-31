@@ -529,7 +529,7 @@ espn_mbb_box_score_season <- function(season){
 ############################
 
 #TORVIK BOX SCORE
-season <- 2023
+season <- 2024
 for (season in 2008:2023){
   #First we get all the boxscore data for each available season.
   df <- bart_expanded_box_score(season)

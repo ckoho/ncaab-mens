@@ -1,6 +1,6 @@
 #elo_calculation.R
 #elo_calculation.R
-#This computes the ELO rnaking for MBB using torvik data.
+#This computes the ELO ranking for MBB using torvik data.
 
 #library(sportsdataverse)
 #library(gamezoneR)
@@ -24,7 +24,7 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
     team1_rating = df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
     team2 = df[[j, "team2"]]
     team2_rating = df1[[which(df1 == team2, arr.ind=TRUE)[1], "elo"]]
- 
+
     #Calculating home court advantage into win percentage. Rest of calculation 
     #is the same. Line calculation also needs to factor in home court. Taking 
     #rating delta time .0815 to get line.
@@ -146,19 +146,92 @@ k <- 27
 #l_loop <- c(.01, .05, .1, .15, .2, .25)
 #l_loop <- c(.3, .4, .5, .75)
 l <- .25
-season <- 2008
+#season <- 2024
 
-df_ratings <- vroom("C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_torvik_default.csv", altrep = FALSE)
-season <- 2023
-df_ratings <- vroom("C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_torvik.csv", altrep = FALSE)
+df_ratings <- vroom(
+  "C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_torvik_default.csv", 
+  altrep = FALSE)
+#season <- 2023
+#df_ratings <- vroom(
+#  "C:/Users/ckoho/Documents/Inputs/NCAA/Torvik/mbb_elo_torvik_2023.csv", 
+#  altrep = FALSE)
 
-for (season in 2008:2023){
+for (season in 2008:2024){
   #Need to check 2022 home court advantage.
   df_ratings[, 9:69]  <- NA
-  if (season == "2021" | season == "2022" | season == "2023"   ){
+  if (season == "2021" | season == "2022" | season == "2023" | season == "2024"
+      ){
     home_court <- 49
   }else{
     home_court <- 70
+  }
+  if (season == "2009"){
+    #Set Bryant to ind conference rating
+    df_ratings[46,2] <- 1286
+    #Set Houston Christain to ind conference rating
+    df_ratings[29,2] <- 1286
+    #Set SIU to ind conference rating
+    df_ratings[23,2] <- 1286
+    #Set IPFW to Summit conference rating
+    df_ratings[14,2] <- 1459
+  }else if (season == "2010"){
+    #Set North Dakota to GWC conference rating
+    df_ratings[26,2] <- 1209
+    #Set South Dakota to GWC conference rating
+    df_ratings[25,2] <- 1209
+    #Set Seattle to ind conference rating
+    df_ratings[24,2] <- 1256
+  }else if (season == "2012"){
+    #Set Nebraska Omaha to ind conference rating
+    df_ratings[20,2] <- 1239
+  }else if (season == "2013"){
+    #Set Northern Kentucky to ASun conference rating
+    df_ratings[19,2] <- 1449
+  }else if (season == "2014"){
+    #Set Abilene Christian to Slnd conference rating
+    df_ratings[15,2] <- 1359
+    #Set Grand Canyon to WAC conference rating
+    df_ratings[18,2] <- 1493
+    #Set Incarnate Word to Slnd conference rating
+    df_ratings[13,2] <- 1359
+    #Set UMass Lowell to AE conference rating
+    df_ratings[17,2] <- 1392
+  }else if (season == "2017"){
+    #Set Fort Wayne to IPFW rating.
+    #TODO Need to clean up how this is handled later.
+    df_ratings[11,2] <- df_ratings[14,2]
+  }else if (season == "2019"){
+    #Set Cal Baptist to Sum conference rating
+    df_ratings[9,2] <- 1437
+    #Set North Alabama to ASun conference rating
+    df_ratings[8,2] <- 1330
+  }else if (season == "2020"){
+    #Set Merrimack to NEC conference rating
+    df_ratings[6,2] <- 1318
+  }else if (season == "2021"){
+    #Set Tarleton St to WAC conference rating
+    df_ratings[3,2] <- 1398
+    #Set UC San Diego to BW conference rating
+    df_ratings[2,2] <- 1385
+    #Set Utah Tech to WAC conference rating
+    df_ratings[4,2] <- 1398
+    #Set Bellarmine to ASun conference rating
+    df_ratings[5,2] <- 1364
+  }else if (season == "2022"){
+    #Set St Thomas to Sum conference rating
+    df_ratings[1,2] <- 1389
+  }else if (season == "2023"){
+    #Set Queens to ASun conference rating
+    df_ratings[365,2] <- 1393
+    #Set Southern Indiana to OVC conference rating
+    df_ratings[366,2] <- 1369
+    #Set Stonehill to NEC conference rating
+    df_ratings[367,2] <- 1334
+    #Set Texas A&M Commerce to OVC conference rating
+    df_ratings[368,2] <- 1254
+  }else if (season == "2024"){
+    #Set Le Moyne to NEC conference rating
+    df_ratings[369,2] <- 1279
   }
   df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/torvik_box_score_", season, ".csv"))
   #df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
@@ -180,8 +253,8 @@ for (season in 2008:2023){
   df_ratings <- df_ratings %>%
     mutate( !!elo_year := elo)
   write_csv(df_ratings, paste("mbb_elo_torvik_", season, ".csv", sep = ""))
-  #write_csv(df_ratings, paste("mbb_elo_", l, "_", 
-  #                            season, ".csv", sep = ""))
+  
+  
   
   #Regress to baseline for next year.
   #Regression calculation = 50% end of year, 30% n -1, and 20% mean (1500)

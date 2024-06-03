@@ -1,5 +1,4 @@
 #elo_calculation.R
-#elo_calculation.R
 #This computes the ELO ranking for MBB using torvik data.
 
 #library(sportsdataverse)

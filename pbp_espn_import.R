@@ -1,26 +1,25 @@
 #pbp_tracker.R
 #This file breaks down the play by play data.
 
-library(future)
+#library(future)
 library(progressr)
-library(gamezoneR)
+#library(gamezoneR)
 library(tidyverse)
 
 library(sportsdataverse)
-library(jsonlite)
-library(cli)
-library(withr)
-library(readr)
-library(vroom)
-library(fs)
+#library(jsonlite)
+#library(cli)
+#library(withr)
+#library(readr)
+#library(vroom)
+#library(fs)
 
-future::plan("multisession")
+
+
 progressr::with_progress({
-  pbp <- gamezoneR::load_gamezone_pbp(gamezoneR:::available_seasons())
+  mbb_pbp <-  hoopR::load_mbb_pbp()
 })
 
-
-#Track made basket, turnover, free throw miss/make, start of half, possesion length.
 seasons <- gamezoneR:::available_seasons()
 seasons <- seasons 
 future::plan("multisession")

@@ -12,7 +12,7 @@ library(vroom)
 library(fs)
 
 #FUNCTIONS
-#Box SCore data. For time being I am using my own made script. toRvik package
+#Box Score data. For time being I am using my own made script. toRvik package
 #may add this functionality later. Script is called bart_expanded_box_score(). 
 #Data is available back to 2008.
 bart_expanded_box_score<- function(year = current_season()) {
@@ -82,6 +82,60 @@ bart_expanded_box_score<- function(year = current_season()) {
     }
   })}
 
+  
+
+#http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=1000&dates=20241118
+espn_day_game_ids <-  function(date){
+  base_id_url <-
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=1000&dates="
+  
+  ## Inputs
+  ## game_id
+  full_url <- paste0(base_id_url, date)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  res <- httr::RETRY("GET", full_url)
+  x = httr::status_code(res)
+  if(x != 200) return(tibble())
+  df_games <- tibble()
+  tryCatch(
+    expr = {
+      resp <- res %>%
+        httr::content(as = "text", encoding = "UTF-8")
+      
+      raw_summary <- jsonlite::fromJSON(resp)
+      if ("events" %in% names(raw_summary)) {
+        df_game_ids <-
+          jsonlite::fromJSON(jsonlite::toJSON(raw_summary$events$id), flatten =
+                               TRUE) %>%
+          dplyr::as_tibble()
+      }
+    },
+    error = function(e) {
+      message(glue::glue(
+        "{Sys.time()}: Invalid arguments or no games available!"
+      ))
+    },
+    warning = function(w) {
+      
+    },
+    finally = {
+      
+    }
+    
+  )
+  return(df_game_ids)
+  
+}
 #game_id <- 401252483
 #game_id <- 273090235
 espn_mbb_lines <-  function(game_id){
@@ -483,6 +537,820 @@ espn_mbb_box_score <- function(game_id){
   return(df_teams_box_score)
 }
 
+#Reads in VI lines
+vi_mbb_lines <-  function(date){
+  summary_url <-
+    "C:/Users/ckoho/Documents/Inputs/NCAA/line/VegasInsider/VI_"
+  
+  end_url <- "_NCAAB.htm" 
+  
+  
+  ## Inputs, date
+  full_url <- paste0(summary_url,
+                     date, 
+                     end_url)
+  res <- rvest::read_html(full_url)
+  
+  df_books <- res %>% 
+    rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]/tr[1]') %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_attr("alt") %>%
+    tibble::as_tibble() %>%
+    tidyr::drop_na()
+  list_books <- deframe(df_books)
+  list_type <- list("Line", "Price")
+  # Create all combinations of the two lists 
+  combinations <- expand.grid(list_books, list_type) 
+  # Combine the elements with an underscore 
+  result <- paste(combinations$Var1, combinations$Var2, sep = "_") 
+  #print(nrow(df_books))
+  if(nrow(df_books) == 8){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Line", "Open_Line_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[9]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[16]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+          tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                        c("Team", "Open", "Col1", "Col2", "Col3",
+                                          "Col4", "Col5", "Col6", "Col7",
+                                          "Col8", "Col9"),  too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                        c("Open_Line", "Open_Line_Price"), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                        c(result[1], result[9]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                        c(result[2], result[10]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                        c(result[3], result[11]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                        c(result[4], result[12]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                        c(result[5], result[13]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                        c(result[6], result[14]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                        c(result[7], result[15]), 
+                                      too_few = "align_start", too_many = "drop") %>%
+          tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                        c(result[8], result[16]), 
+                                      too_few = "align_start", too_many = "drop")
+        
+    
+    
+  }else if (nrow(df_books) == 9){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Line", "Open_Line_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Line", "Open_Line_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    
+    
+  }
+
+  # df_spread1 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.divided') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  # 
+  # df_spread2 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.footer') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  df_spread1 <- df_spread1 %>%
+    rename_with(~ paste0(.x, "_away"))
+  df_spread2 <- df_spread2 %>%
+    rename_with(~ paste0(.x, "_home"))
+  df_spread <- df_spread1 %>%
+    cbind(df_spread2)
+  return(df_spread)
+
+}
+
+#Reads in VI totals
+vi_mbb_totals <-  function(date){
+  summary_url <-
+    "C:/Users/ckoho/Documents/Inputs/NCAA/line/VegasInsider/VI_"
+  
+  end_url <- "_NCAAB.htm" 
+  
+  
+  ## Inputs, date
+  full_url <- paste0(summary_url,
+                     date, 
+                     end_url)
+  res <- rvest::read_html(full_url)
+  
+  df_books <- res %>% 
+    rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]/tr[1]') %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_attr("alt") %>%
+    tibble::as_tibble() %>%
+    tidyr::drop_na()
+  list_books <- deframe(df_books)
+  list_type <- list("Total", "Price")
+  # Create all combinations of the two lists 
+  combinations <- expand.grid(list_books, list_type) 
+  # Combine the elements with an underscore 
+  result <- paste(combinations$Var1, combinations$Var2, sep = "_") 
+  #print(nrow(df_books))
+  if(nrow(df_books) == 8){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-total--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Total", "Open_Total_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[9]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[16]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-total--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Total", "Open_Total_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[9]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[16]), 
+                                  too_few = "align_start", too_many = "drop")
+    
+    
+    
+  }else if (nrow(df_books) == 9){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-total--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Total", "Open_Total_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-total--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_Total", "Open_Total_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    
+    
+  }
+  
+  # df_spread1 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.divided') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  # 
+  # df_spread2 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.footer') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  df_spread1 <- df_spread1 %>%
+    rename_with(~ paste0(.x, "_away"))
+  df_spread2 <- df_spread2 %>%
+    rename_with(~ paste0(.x, "_home"))
+  df_spread <- df_spread1 %>%
+    cbind(df_spread2)
+  return(df_spread)
+}
+
+
+#Reads in VI moneyline
+vi_mbb_moneyline <-  function(date){
+  summary_url <-
+    "C:/Users/ckoho/Documents/Inputs/NCAA/line/VegasInsider/VI_"
+  
+  end_url <- "_NCAAB.htm" 
+  
+  
+  ## Inputs, date
+  full_url <- paste0(summary_url,
+                     date, 
+                     end_url)
+  res <- rvest::read_html(full_url)
+  
+  df_books <- res %>% 
+    rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]/tr[1]') %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_children() %>%
+    rvest::html_attr("alt") %>%
+    tibble::as_tibble() %>%
+    tidyr::drop_na()
+  list_books <- deframe(df_books)
+  list_type <- list("ML", "Price")
+  # Create all combinations of the two lists 
+  combinations <- expand.grid(list_books, list_type) 
+  # Combine the elements with an underscore 
+  result <- paste(combinations$Var1, combinations$Var2, sep = "_") 
+  #print(nrow(df_books))
+  if(nrow(df_books) == 8){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-moneyline--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_ML", "Open_ML_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[9]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[16]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-moneyline--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_ML", "Open_ML_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[9]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[16]), 
+                                  too_few = "align_start", too_many = "drop")
+    
+    
+    
+  }else if (nrow(df_books) == 9){
+    df_spread1 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-moneyline--0"]') %>%
+      rvest::html_elements('.divided') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_ML", "Open_ML_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    df_spread2 <- res %>% 
+      rvest::html_node(xpath = '//*[@id="odds-table-moneyline--0"]') %>%
+      rvest::html_elements('.footer') %>%
+      rvest::html_text2() %>%
+      tidyr::as_tibble(column_name = "Header") %>%
+      tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+                                    c("Team", "Open", "Col1", "Col2", "Col3",
+                                      "Col4", "Col5", "Col6", "Col7",
+                                      "Col8", "Col9", "Col10"),  too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+                                    c("Open_ML", "Open_ML_Price"), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col1, delim = " ", names =  
+                                    c(result[1], result[10]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col2, delim = " ", names =  
+                                    c(result[2], result[11]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col3, delim = " ", names =  
+                                    c(result[3], result[12]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col4, delim = " ", names =  
+                                    c(result[4], result[13]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col5, delim = " ", names =  
+                                    c(result[5], result[14]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col6, delim = " ", names =  
+                                    c(result[6], result[15]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col7, delim = " ", names =  
+                                    c(result[7], result[16]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col8, delim = " ", names =  
+                                    c(result[8], result[17]), 
+                                  too_few = "align_start", too_many = "drop") %>%
+      tidyr::separate_wider_delim(cols = Col9, delim = " ", names =  
+                                    c(result[9], result[18]), 
+                                  too_few = "align_start", too_many = "drop")
+    
+  }
+  
+  # df_spread1 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.divided') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  # 
+  # df_spread2 <- res %>% 
+  #   rvest::html_node(xpath = '//*[@id="odds-table-spread--0"]') %>%
+  #   rvest::html_elements('.footer') %>%
+  #   rvest::html_text2() %>%
+  #   tidyr::as_tibble(column_name = "Header") %>%
+  #   tidyr::separate_wider_delim(cols = value, delim = "\t", names =  
+  #                                 c("Team", "Open", "Bet365", "BetMGM", "DraftKings",
+  #                                   "WilliamHill", "ESPNbet", "FanDuel", "BallyBet",
+  #                                   "BetRivers", "VegasInsider"),  too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Open, delim = " ", names =  
+  #                                 c("Open_OU", "Open_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = Bet365, delim = " ", names =  
+  #                                 c("Bet365_OU", "Bet365_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetMGM, delim = " ", names =  
+  #                                 c("BetMGM_OU", "BetMGM_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = DraftKings, delim = " ", names =  
+  #                                 c("DraftKings_OU", "DraftKings_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = WilliamHill, delim = " ", names =  
+  #                                 c("WilliamHill_OU", "WilliamHill_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = ESPNbet, delim = " ", names =  
+  #                                 c("ESPNbet_OU", "ESPNbet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = FanDuel, delim = " ", names =  
+  #                                 c("FanDuel_OU", "FanDuel_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BallyBet, delim = " ", names =  
+  #                                 c("BallyBet_OU", "BallyBet_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop") %>%
+  #   tidyr::separate_wider_delim(cols = BetRivers, delim = " ", names =  
+  #                                 c("BetRivers_OU", "BetRivers_OU_Price"), 
+  #                               too_few = "align_start", too_many = "drop")
+  df_spread1 <- df_spread1 %>%
+    rename_with(~ paste0(.x, "_away"))
+  df_spread2 <- df_spread2 %>%
+    rename_with(~ paste0(.x, "_home"))
+  df_spread <- df_spread1 %>%
+    cbind(df_spread2)
+  return(df_spread)
+}
+
 #Loads each available game id,
 espn_mbb_game_id_season <- function(season){
   df_gi <- hoopR::load_mbb_team_box(season) %>%
@@ -492,6 +1360,8 @@ espn_mbb_game_id_season <- function(season){
     select(game_id)
   return(df_gi)
 }
+
+
 
 
 #Loads certain season box score
@@ -528,28 +1398,91 @@ espn_mbb_box_score_season <- function(season){
 # End of Functions
 ############################
 
+##########################
+### VI Betting lines ###
+##########################
+
+#2023 dates and getting Vegas Insider lines.
+dates <- seq(lubridate::ymd('2024-11-07'),lubridate::ymd('2024-12-03'),by='days') %>%
+  str_replace_all("-", "_") %>%
+  as_tibble() 
+for (date in dates){
+  df_vi_line <- bind_rows(map(dates$value,vi_mbb_lines))
+  df_vi_total <- bind_rows(map(dates$value,vi_mbb_totals))
+  df_vi_ml <- bind_rows(map(dates$value,vi_mbb_moneyline))
+  
+  
+}
+
+
+write_csv(df_spread, paste0("vegas_insider_spread_", date, ".csv"))
+write_csv(df_spread, paste0("vegas_insider_moneyline_", date, ".csv"))
+write_csv(df_spread, paste0("vegas_insider_spread_", date, ".csv"))
+
+
 #TORVIK BOX SCORE
-season <- 2024
-for (season in 2008:2023){
-  #First we get all the boxscore data for each available season.
+season <- 2025
+for (season in 2024:2025){
+#for (season in 2008:2025){
+    #First we get all the boxscore data for each available season.
   df <- bart_expanded_box_score(season)
   df <- df %>%
     mutate(win = str_trim(win),
            loss = str_trim(loss),
            team2 = str_trim(team2),
            team1 = str_trim(team1))
+  df <- df %>%
+    mutate_at(colnames(df), ~ str_replace(., "^Detroit Mercy$", "Detroit")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^Charleston$", "College of Charleston")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^Saint Francis$", "St. Francis NY")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^N.C. State$", "North Carolina St.")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^Louisiana$", "Louisiana Lafayette")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^Purdue Fort Wayne$", "IPFW")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^LIU$", "LIU Brooklyn")) %>%
+    mutate_at(colnames(df), ~ str_replace(., "^IU Indy$", "IUPUI"))
+  
   write_csv(df, paste0("torvik_box_score_", season, ".csv"))
 }
 
+##########################
+### ESPN Betting lines ###
+##########################
+
+#2023 dates and creating the espn game IDs.
+dates <- seq(lubridate::ymd('2022-10-07'),lubridate::ymd('2023-05-01'),by='days') %>%
+  str_replace_all("-", "") %>%
+  as_tibble()
+df_gi <- map_df(dates$value, espn_day_game_ids)
+df_box_score <- bind_rows(map(df_gi$value,espn_mbb_lines))
+season <- 2023
+write_csv(df_box_score, paste0("espn_mbb_betting_lines_", season, ".csv"))
+
+#2024 dates and creating the espn game IDs.
+dates <- seq(lubridate::ymd('2023-10-07'),lubridate::ymd('2024-05-01'),by='days') %>%
+  str_replace_all("-", "") %>%
+  as_tibble()
+df_gi <- map_df(dates$value, espn_day_game_ids)
+df_box_score <- bind_rows(map(df_gi$value,espn_mbb_lines))
+season <- 2024
+write_csv(df_box_score, paste0("espn_mbb_betting_lines_", season, ".csv"))
+
+#2025 dates and creating the espn game IDs.
+dates <- seq(lubridate::ymd('2024-10-07'),lubridate::ymd('2025-05-01'),by='days') %>%
+  str_replace_all("-", "") %>%
+  as_tibble()
+df_gi <- map_df(dates$value, espn_day_game_ids)
+df_box_score <- bind_rows(map(df_gi$value,espn_mbb_lines))
+season <- 2025
+write_csv(df_box_score, paste0("espn_mbb_betting_lines_", season, ".csv"))
+
+
 #All betting lines
-for (season in 2008:2023){
+for (season in 2023:2025){
   # https://www.espn.com/mens-college-basketball/boxscore/_/gameId/253292579
   # http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=253292579
   df_gi <- espn_mbb_game_id_season(season) 
   df_box_score <- bind_rows(map(df_gi$game_id,espn_mbb_lines))
   write_csv(df_box_score, paste0("../../Inputs/NCAA/espn_mbb_betting_lines_", season, ".csv"))
-  
-  
 }
 
 

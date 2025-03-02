@@ -2,8 +2,7 @@
 #   install.packages('pacman')
 # }
 # pacman::p_load_current_gh("saiemgilani/sportsdataverse-R")
-#devtools::install_github(repo = "JackLich10/gamezoneR")
-library(sportsdataverse)
+#devtools::install_github(repo = "JackLich10/gamezoneR")library(sportsdataverse)
 library(gamezoneR)
 library(tidyverse)
 library(jsonlite)
@@ -15,8 +14,89 @@ library(vroom)
 library(ggpmisc)
 library(gt)
 library(gtExtras)
+library(patchwork)
 
-#sportsdataverse_packages()
+ck_theme <- function() {
+  theme(
+    # add border 1)
+    panel.border = element_rect(colour = "black", fill = NA, linetype = 1),
+    # color background 2)
+    panel.background = element_rect(fill = "grey90"),
+    # modify grid 3)
+    panel.grid.major.x = element_line(colour = "white", linetype = 1, size = .6),
+    panel.grid.minor.x = element_line(colour = "white", linetype = 2, size = 0.5),
+    panel.grid.major.y =  element_line(colour = "white", linetype = 1, size = .6),
+    panel.grid.minor.y = element_line(colour = "white", linetype = 2, size = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    # modify text, axis and colour 4) and 5)
+    axis.text = element_text(colour = "black"), #, family = "mono"
+    axis.title = element_text(colour = "black"),
+    axis.ticks = element_line(colour = "black"),
+    plot.caption = element_text(colour = "black")
+    
+  )
+}
+#######
+# Fixes legend issue in patchwork
+######
+guides_build_mod <- function (guides, theme){
+  legend.spacing.y <- calc_element("legend.spacing.y", theme)  # modified by me
+  legend.spacing.x <- calc_element("legend.spacing.x", theme)  # modified by me
+  legend.box.margin <- calc_element("legend.box.margin", theme) %||% 
+    margin()
+  widths <- exec(unit.c, !!!lapply(guides, gtable_width))
+  heights <- exec(unit.c, !!!lapply(guides, gtable_height))
+  just <- valid.just(calc_element("legend.box.just", theme))
+  xjust <- just[1]
+  yjust <- just[2]
+  vert <- identical(calc_element("legend.box", theme), "horizontal")
+  guides <- lapply(guides, function(g) {
+    editGrob(g, vp = viewport(x = xjust, y = yjust, just = c(xjust, 
+                                                             yjust), height = if (vert) 
+                                                               heightDetails(g)
+                              else 1, width = if (!vert) 
+                                widthDetails(g)
+                              else 1))
+  })
+  guide_ind <- seq(by = 2, length.out = length(guides))
+  sep_ind <- seq(2, by = 2, length.out = length(guides) - 1)
+  if (vert) {
+    heights <- max(heights)
+    if (length(widths) != 1) {
+      w <- unit(rep_len(0, length(widths) * 2 - 1), "mm")
+      w[guide_ind] <- widths
+      w[sep_ind] <- legend.spacing.x
+      widths <- w
+    }
+  }
+  else {
+    widths <- max(widths)
+    if (length(heights) != 1) {
+      h <- unit(rep_len(0, length(heights) * 2 - 1), "mm")
+      h[guide_ind] <- heights
+      h[sep_ind] <- legend.spacing.y
+      heights <- h
+    }
+  }
+  widths <- unit.c(legend.box.margin[4], widths, legend.box.margin[2])
+  heights <- unit.c(legend.box.margin[1], heights, legend.box.margin[3])
+  guides <- gtable_add_grob(gtable(widths, heights, name = "guide-box"), 
+                            guides, t = 1 + if (!vert) 
+                              guide_ind
+                            else 1, l = 1 + if (vert) 
+                              guide_ind
+                            else 1, name = "guides")
+  gtable_add_grob(guides, element_render(theme, "legend.box.background"), 
+                  t = 1, l = 1, b = -1, r = -1, z = -Inf, clip = "off", 
+                  name = "legend.box.background")
+}
+
+environment(guides_build_mod) <- asNamespace('patchwork')
+assignInNamespace("guides_build", guides_build_mod, ns = "patchwork")
+#######
+# End Fix
+######
+
 #usethis::use_git_config(user.name = "ckohoutek", user.email = "ckohoutek@gmail.com")
 #credentials::set_github_pat("YourPAT")
 hoopR::load_mbb_team_box()
@@ -60,8 +140,6 @@ df_espn <- vroom(paste0("espn_line_information_", season, ".csv"))
 
 
 
-
-####NEEDS REVIEW!!!!
 #####################################################################
 ### Checking what K value is best on train data set.              ###
 #####################################################################
@@ -768,3 +846,434 @@ df_round <- df_shots_only %>%
             n = n()) 
 
 ggplot(df_round, aes(y = mean, x = round_dist, size = n)) + geom_point() 
+
+
+
+
+#########################################
+#########################################
+### Line based elo analysis           ###
+#########################################
+#########################################
+#2025 Analysis
+k <- 5
+season <- 2016
+k_loop <- c(5, 10, 15, 18, 19, 20, 21, 22, 23, 24, 25)
+k_loop <- c(5, 10, 15, 20, 25, 30, 35)
+
+#Cleaning up files to add in results
+for(k in k_loop){
+  for (season in 2010:2019) {
+  #for (season in 2008:2022) {
+    df_analysis <- vroom(
+      paste0(
+        "line_results_eoy_",
+        k, "_", season, "_mbb_box_score.csv"
+      ), altrep = FALSE
+    )
+    df_analysis <- df_analysis %>%
+      mutate(result = if_else(team2_pts > team1_pts, 1, 0))
+    write_csv(df_analysis, paste0(
+      "line_results_eoy_", k, "_", season, "_mbb_box_score.csv")
+    )
+  }
+  
+}
+
+
+#Want to loop and summarize the results
+df_box_score_all <- tibble()
+for(k in k_loop){
+  for (season in 2010:2019) {
+    df_read <- vroom(
+      paste0(
+        "line_results_eoy_",
+        k, "_", season, "_mbb_box_score.csv"
+      ), altrep = FALSE
+    )
+    df_read$k <- k
+    df_read <- df_read %>%
+      mutate(rounded = round(team2_odds, 2))
+    df_box_score_all <- df_box_score_all %>%
+      bind_rows(df_read)
+  }
+  
+}
+#If line_delta is negative team 2 over performed.
+df_box_score_all <- df_box_score_all %>%
+  mutate(line_delta = team1_pts - team2_pts - line,
+         delta = team1_pts - team2_pts)
+
+df_box_score_all <- df_box_score_all %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2),
+         sq_error = line_delta ^ 2
+  )
+
+# Summarize the log loss and RMSE by each group
+df_summarize_line_year <- df_box_score_all %>%
+  group_by(season, k) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+df_summarize_line <- df_box_score_all %>%
+  group_by(k) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+df_summarize_line <- df_summarize_line %>%
+  filter(k > 11)
+
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point() #+ 
+ggplot(df_summarize_line, aes(x = k, y = RMSE)) + 
+  geom_point() #+ 
+
+#####################
+### Plots to save ###
+#####################
+
+
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) +
+  geom_smooth(aes(color =as.factor(k))) + 
+  ck_theme() +
+  labs(title = "Line Miss versus Pregame Odds",
+       caption = "Plot made by Colin Kohoutek")
+ggsave("2025_03_02_aelo_line_delta_odds.png", width = 5, height = 4)
+#ggsave("2025_02_28_line_based_line_delta_odds.png", width = 5, height = 4)
+ggplot(df_box_score_all, aes(x = line, y = delta)) +
+  geom_smooth(aes(color =as.factor(k))) +
+  geom_abline(intercept=0, slope=1) + 
+  ck_theme() +
+  labs(title = "Actual vs Predicted Results",
+       caption = "Plot made by Colin Kohoutek")
+ggsave("2025_03_02_aelo_line_vs_line_delta_k_linebased.png", width = 6, height = 4)
+#ggsave("2025_02_28_line_based_line_vs_line_delta_k_linebased.png", width = 6, height = 4)
+
+p1 <- ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point() + 
+  ck_theme() +
+  labs(title = "LogLoss By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p2 <- ggplot(df_summarize_line, aes(x = k, y = RMSE)) + 
+  geom_point() + 
+  ck_theme() +
+  labs(title = "RMSE By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p1 + p2 + plot_layout(guides = 'collect') 
+#wrap_plots(list(p1, p2), guides = "collect")
+ggsave("2025_03_02_aelo_k_logloss_rmse.png", width = 7, height = 4)
+#ggsave("2025_02_28_line_based_k_logloss_rmse.png", width = 7, height = 4)
+
+df_box_score_filter <- df_box_score_all %>%
+  filter(season > 2014) %>%
+  filter(k > 12)
+
+df_summarize_line_late <- df_box_score_filter %>%
+  group_by(k) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+
+p1 <- ggplot(df_summarize_line_late, aes(x = k, y = logloss)) + 
+  geom_point() + 
+  ck_theme() +
+  labs(title = "LogLoss By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p2 <- ggplot(df_summarize_line_late, aes(x = k, y = RMSE)) + 
+  geom_point() + 
+  ck_theme() +
+  labs(title = "RMSE By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p1 + p2 + plot_layout(guides = 'collect') 
+ggsave("2025_03_02_aelo_late_years_k_logloss_rmse.png", width = 7, height = 4)
+#ggsave("2025_02_28_line_based_late_years_k_logloss_rmse.png", width = 7, height = 4)
+
+df_box_score_choice <- df_box_score_all %>%
+  filter(k == 17) 
+
+ggplot(df_box_score_choice, aes(x = line, y = line_delta)) +
+  ck_theme() +
+  labs(title = "Line Miss versus Pregame Line",
+       caption = "Plot made by Colin Kohoutek") + 
+  facet_wrap(vars(season)) + 
+  geom_smooth() + 
+  geom_abline(intercept=0, slope=0)
+ggsave("2025_03_02_aelo_19_line_vs_line_delta.png", width = 12, height = 8)
+#ggsave("2025_02_28_line_based_19_line_vs_line_delta.png", width = 12, height = 8)
+
+
+ggplot(df_box_score_choice, aes(x = team2_odds, y = result)) +
+  ck_theme() +
+  labs(title = "Pregame Odds Versus Result",
+       caption = "Plot made by Colin Kohoutek") + 
+  facet_wrap(vars(season)) + 
+  geom_smooth() + 
+  geom_abline(intercept=0, slope=1)
+ggsave("2025_02_28_line_based_19_odds_vs_result_years.png", width = 12, height = 8)
+
+
+df_box_score_choice <- df_box_score_choice %>%
+  mutate(season = as_factor(season))
+#Choose final value and show year over year results.
+p1 <- ggplot(df_box_score_choice, aes(x = team2_odds, y = result)) +
+  geom_smooth(aes(color = season)) + 
+  ck_theme() +
+  labs(title = "Pregame Odds Versus Result",
+       caption = "Plot made by Colin Kohoutek") + 
+  geom_abline(intercept=0, slope=1)
+
+p2 <- ggplot(df_box_score_choice, aes(x = line, y = line_delta)) +
+  geom_smooth(aes(color = season)) + 
+  ck_theme() +
+  labs(title = "Line Miss versus Pregame Line",
+       caption = "Plot made by Colin Kohoutek") 
+  
+p1 + p2 + plot_layout(guides = 'collect') 
+ggsave("2025_02_28_line_based_19_year_plots.png", width = 10, height = 5)
+
+#########################
+### End Plots to save ###
+#########################
+
+
+
+ggplot(df_box_score_all, aes(x = team2_odds, y = line)) + 
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) +
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = sq_error)) +
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) + geom_point(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = sq_error)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = team2_odds, y = result)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = team2_odds, y = delta)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = delta, y = result)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = line, y = delta)) +
+  geom_smooth(aes(color =as.factor(k))) +
+  geom_abline(intercept=0, slope=1) #+ 
+  geom_abline(intercept=0, slope=.576)
+ggplot(df_box_score_all, aes(x = line, y = logloss)) +
+  geom_smooth(aes(color =as.factor(k))) #+
+  geom_point() 
+
+
+ggplot(df_box_score_filter, aes(x = line, y = delta)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE) +
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               formula = y ~ x, parse = TRUE) +
+  geom_abline(intercept=0, slope=.576) #+
+  geom_abline(intercept=0, slope=.48)
+
+
+
+
+
+
+# Summarize the log loss and RMSE by each group
+df_summarize_line_year <- df_box_score_all %>%
+  group_by(season, k) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+df_summarize_line <- df_box_score_all %>%
+  group_by(k) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + geom_point()
+ggplot(df_summarize_line, aes(x = k, y = RMSE)) + geom_point()
+
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + geom_point(aes(color=as.factor(season)))
+df_filter <- df_summarize_line %>%
+  filter(season > 2011) %>% 
+  group_by(k) %>%
+  summarise_all(mean)
+ggplot(df_summarize_line, aes(x = season, y = logloss)) + geom_point()
+ggplot(df_summarize_line, aes(x = season, y = RMSE)) + geom_point()
+
+##### 19 gives the best result.  RMSE 11, logloss = .527
+
+
+#########################################
+#########################################
+### Adjusted line based elo analysis  ###
+#########################################
+#########################################
+k <- 5
+season <- 2016
+k_loop <- c(25, 26, 27, 28, 29, 30)
+k_loop <- c(15, 16, 17, 18, 19, 20)
+l_loop <- c(.25, .3, .4)
+
+#Want to loop and summarize the results
+df_box_score_all <- tibble()
+for(k in k_loop){
+  for(l in l_loop){
+    for (season in 2008:2019) {
+      df_read <- vroom(
+        paste0(
+          "adjust_results_eoy_",
+          k, "_", l, "_", season, "_mbb_box_score.csv"
+        ), altrep = FALSE
+      )
+      df_read$k <- k
+      df_read$l <- l
+      df_read <- df_read %>%
+        mutate(rounded = round(team2_odds, 2))
+      df_box_score_all <- df_box_score_all %>%
+        bind_rows(df_read)
+    }
+  }  
+}
+#If line_delta is negative team 2 over performed.
+df_box_score_all <- df_box_score_all %>%
+  mutate(line_delta = team1_pts - team2_pts - line,
+         delta = team1_pts - team2_pts)
+
+df_box_score_all <- df_box_score_all %>%
+  mutate(eq1 = result * log(team2_odds),
+         eq2 = (1 - result) * log(1-team2_odds),
+         logloss = -(eq1 + eq2),
+         sq_error = line_delta ^ 2
+  )
+
+
+
+ggplot(df_box_score_all, aes(x = team2_odds, y = line)) + geom_point()
+
+df_summarize_line_year <- df_box_score_all %>%
+  group_by(season, k, l) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+df_summarize_line <- df_box_score_all %>%
+  group_by(k, l) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+
+
+
+###################
+## Plots to save ##
+###################
+ggplot(df_box_score_all, aes(x = team2_odds, y = sq_error)) +
+  geom_smooth(aes(color =as.factor(k))) 
+ggplot(df_box_score_all, aes(x = team2_odds, y = delta)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = line, y = delta)) +
+  geom_smooth(aes(color =as.factor(k))) +
+  geom_abline(intercept=0, slope=1) #+ 
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point() #+ 
+ggplot(df_summarize_line, aes(x = k, y = RMSE)) + 
+  geom_point() #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = result)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_all, aes(x = team2_odds, y = result)) +
+  geom_smooth(aes(color =as.factor(k))) + 
+  ck_theme() +
+  labs(title = "Line Miss versus Pregame Odds",
+       caption = "Plot made by Colin Kohoutek") +
+  geom_abline(intercept=0, slope=1)
+
+
+
+#logloss = .53 RMSE = 11.5
+
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point(aes(color = as.factor(l))) +
+  labs(title = "Line Miss versus Pregame Odds",
+       caption = "Plot made by Colin Kohoutek")
+  
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point(aes(color = as.factor(l))) +
+  ck_theme() +
+  labs(title = "Line Miss versus Pregame Odds",
+       caption = "Plot made by Colin Kohoutek") 
+ggplot(df_summarize_line, aes(x = k, y = RMSE)) + 
+  geom_point(aes(color = as.factor(l))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) +
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) +
+  geom_smooth(aes(color =as.factor(l))) #+ 
+
+
+
+
+ggplot(df_box_score_all, aes(x = team2_odds, y = line)) + 
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) +
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = sq_error)) +
+  geom_smooth(aes(color =as.factor(k))) #+ 
+ggplot(df_box_score_all, aes(x = team2_odds, y = line_delta)) + geom_point(aes(color =as.factor(k))) #+ 
+facet_wrap(vars(k))
+ggplot(df_box_score_all, aes(x = team2_odds, y = sq_error)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_filter, aes(x = team2_odds, y = result)) +
+  geom_smooth(aes(color =as.factor(k))) +
+  geom_abline(intercept=0, slope=1)
+ggplot(df_box_score_filter, aes(x = team2_odds, y = delta)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_filter, aes(x = delta, y = result)) +
+  geom_smooth(aes(color =as.factor(k)))  
+ggplot(df_box_score_filter, aes(x = line, y = delta)) +
+  geom_smooth(aes(color =as.factor(k))) +
+  geom_abline(intercept=0, slope=1)
+ggplot(df_box_score_filter, aes(x = line, y = logloss)) +
+  geom_point() 
+
+geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE) +
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               formula = y ~ x, parse = TRUE)
+  
+df_k15_boxscore <- df_box_score_filter %>%
+  filter(k == 15)
+ggplot(df_k15_boxscore, aes(x = line, y = delta)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE) +
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               formula = y ~ x, parse = TRUE) +
+  geom_abline(intercept=0, slope=.576)
+#Line looks to be high. .576 is a good fit. 
+
+ggplot(df_k15_boxscore, aes(x = team2_odds, y = result)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE) +
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               formula = y ~ x, parse = TRUE) + 
+  geom_abline(intercept=0, slope=1)
+  
+  
+df_large <- df_box_score_filter %>%
+  filter(team2_odds < .1 | team2_odds > .9) 
+ggplot(df_large, aes(x = team2_odds, y = line_delta)) + 
+  geom_point(aes(color =as.factor(k))) #+ 
+
+
+df_summarize_line_year <- df_box_score_filter %>%
+  group_by(season, k, l) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+df_summarize_line <- df_box_score_filter %>%
+  group_by(k, l) %>%
+  summarize(logloss = mean(logloss),
+            RMSE = mean(sq_error) ^ .5)
+
+ggplot(df_summarize_line, aes(x = k, y = logloss)) + geom_point()
+ggplot(df_summarize_line, aes(x = k, y = RMSE)) + geom_point()
+
+ggplot(df_summarize_line_year, aes(x = k, y = logloss)) + 
+  geom_point(aes(color=as.factor(season)))
+ggplot(df_summarize_line_year, aes(x = k, y = RMSE)) + 
+  geom_point(aes(color=as.factor(season)))
+df_filter <- df_summarize_line %>%
+  filter(season > 2011) %>% 
+  group_by(k) %>%
+  summarise_all(mean)
+ggplot(df_summarize_line, aes(x = season, y = logloss)) + geom_point()
+ggplot(df_summarize_line, aes(x = season, y = RMSE)) + geom_point()
+
+
+##### 25 gives the best result.  RMSE 14, logloss = .53
+
+

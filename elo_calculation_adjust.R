@@ -18,6 +18,7 @@ library(fs)
 #df1 <- df_ratings
 year_elo_ratings <- function(df, df1, home_court, k, l){
   for (j in 1:nrow(df)) {
+    #print(j)
     #Get each team name and rating .
     team1 = df[[j, "team1"]]
     team1_rating = df1[[which(df1 == team1, arr.ind=TRUE)[1], "elo"]]
@@ -26,21 +27,20 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
 
     #Calculating home court advantage into win percentage. Rest of calculation 
     #is the same. Line calculation also needs to factor in home court. Taking 
-    #rating delta time .0815 to get line.
+    #rating delta time 0.046455 to get line. Used to be .0815
     if (df[[j, "loc"]] == "A") {
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - 
                                         (team2_rating + home_court))/400))
-      df[[j, "line"]] <- (team1_rating - (team2_rating + home_court)) * .0815
+      df[[j, "line"]] <- (team1_rating - (team2_rating + home_court)) * 0.046455
       
     } else if (df[[j, "loc"]] == "N") {
       team2_win_per = 1 / (1 + 10 ^ ((team1_rating - (team2_rating))/400))
-      df[[j, "line"]] <- (team1_rating - (team2_rating)) * .0815
+      df[[j, "line"]] <- (team1_rating - (team2_rating)) * 0.046455
     } else if (df[[j, "loc"]] == "H") {
       team2_win_per = 1 / (1 + 10 ^ (((team1_rating + home_court)- 
                                         (team2_rating))/400))
       df[[j, "line"]] <- ((team1_rating + home_court) - 
-                            (team2_rating)) * .0815
-      
+                            (team2_rating)) * 0.046455
     }
     #Put pre rating and odds into box score data frame.
     df[[j, "team1_rating"]] <- team1_rating
@@ -134,16 +134,15 @@ year_elo_ratings <- function(df, df1, home_court, k, l){
            team2_conf, team2, team2_pts, team1_odds, team2_odds, result, line,
            year, adjust, team2_rating, team1_rating)
   
-  #write_csv(df, paste0("results_eoy_", l, "_", season, "_mbb_box_score.csv"))
-  write_csv(df, paste0("results_eoy_torvik_", season, "_mbb_box_score.csv"))
+  write_csv(df, paste0("adjust_results_eoy_", k, "_", l, "_", season, "_mbb_box_score.csv"))
   return(df1)
 }
 
 
 #DEBUG
-k <- 27
-#l_loop <- c(.01, .05, .1, .15, .2, .25)
-#l_loop <- c(.3, .4, .5, .75)
+k_loop <- 20
+k_loop <- c(15, 16, 17, 18, 19, 20)
+l_loop <- c(.25, .3, .4)
 l <- .25
 #season <- 2024
 
@@ -155,10 +154,21 @@ df_ratings <- vroom(
 #  "C:/Users/ckoho/Documents/Inputs/NCAA/Torvik/mbb_elo_torvik_2023.csv", 
 #  altrep = FALSE)
 
-for (season in 2008:2024){
+season <- 2024
+for(k in k_loop){
+  for(l in l_loop){
+    
+  
+  df_ratings <- vroom(
+    "C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_torvik_default.csv", 
+    altrep = FALSE)
+  
+  
+for (season in 2008:2020){
   #Need to check 2022 home court advantage.
   df_ratings[, 9:69]  <- NA
-  if (season == "2021" | season == "2022" | season == "2023" | season == "2024"
+  if (season == "2021" | season == "2022" | season == "2023" | 
+      season == "2024" | season == "2025"
       ){
     home_court <- 49
   }else{
@@ -232,7 +242,14 @@ for (season in 2008:2024){
     #Set Le Moyne to NEC conference rating
     df_ratings[369,2] <- 1279
   }
-  df_year_box_score <- vroom(paste0( "C:/Users/ckoho/Documents/Inputs/NCAA/torvik_box_score_", season, ".csv"))
+  df_year_box_score <-
+    vroom(
+      paste0(
+        "C:/Users/ckoho/Documents/Inputs/NCAA/Torvik/torvik_box_score_",
+        season,
+        ".csv"
+      )
+    )
   #df_year_box_score <- vroom(paste0( "torvik_box_score_", season, ".csv"))
   df_year_box_score$team1_odds <- 0
   df_year_box_score$team2_odds <- 0
@@ -251,7 +268,7 @@ for (season in 2008:2024){
   #Set end of year ratings to year
   df_ratings <- df_ratings %>%
     mutate( !!elo_year := elo)
-  write_csv(df_ratings, paste("mbb_elo_torvik_", season, ".csv", sep = ""))
+  write_csv(df_ratings, paste("adjust_mbb_elo_torvik_", k, "_", l, "_", season, ".csv", sep = ""))
   
   
   
@@ -266,5 +283,7 @@ for (season in 2008:2024){
            confl = 0,
            gp = 0
     )
-  write_csv(df_ratings, "C:/Users/ckoho/Documents/Inputs/NCAA/mbb_elo_torvik.csv")
+  write_csv(df_ratings, "C:/Users/ckoho/Documents/Inputs/NCAA/adjust_mbb_elo_torvik.csv")
+  }
+  }
 }

@@ -41,6 +41,7 @@ year_elo_ratings <- function(df, df1, home_court, k){
     df[[j, "team1_odds"]] <- 1 - team2_win_per
     df[[j, "team2_odds"]] <- team2_win_per
     
+    #TODO 3/6/2025 HERE
     #Compare result to line (expected result).
     if (df[[j, "line"]] > (df[[j, "team1_pts"]] - df[[j, "team2_pts"]])) {
       #Win per should always be 50/50 for this method.

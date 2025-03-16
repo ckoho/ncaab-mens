@@ -10,9 +10,7 @@ library(tidyverse)
 library(readr)
 library(vroom)
 library(fs)
-#Want to use k=27
 
-#j <- 1
 #j <- 5
 #df <- df_year_box_score
 #df1 <- df_ratings

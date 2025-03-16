@@ -974,7 +974,7 @@ df_summarize_line_late <- df_box_score_filter %>%
             RMSE = mean(sq_error) ^ .5)
 
 p1 <- ggplot(df_summarize_line_late, aes(x = k, y = logloss)) + 
-  geom_point() + 
+  geom_point( ) + 
   ck_theme() +
   labs(title = "LogLoss By K Value",
        caption = "Plot made by Colin Kohoutek")
@@ -987,8 +987,24 @@ p1 + p2 + plot_layout(guides = 'collect')
 ggsave("2025_03_02_aelo_late_years_k_logloss_rmse.png", width = 7, height = 4)
 #ggsave("2025_02_28_line_based_late_years_k_logloss_rmse.png", width = 7, height = 4)
 
+#Looking at l
+p1 <- ggplot(df_summarize_line, aes(x = k, y = logloss)) + 
+  geom_point(aes(color =as.factor(l)) ) + 
+  ck_theme() +
+  labs(title = "LogLoss By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p2 <- ggplot(df_summarize_line, aes(x = k, y = RMSE)) + 
+  geom_point(aes(color =as.factor(l))) + 
+  ck_theme() +
+  labs(title = "RMSE By K Value",
+       caption = "Plot made by Colin Kohoutek")
+p1 + p2 + plot_layout(guides = 'collect') 
+ggsave("2025_03_02_aelo_late_years_k_l_logloss_rmse.png", width = 7, height = 4)
+
 df_box_score_choice <- df_box_score_all %>%
-  filter(k == 17) 
+  filter(k == 17) %>%
+  filter(l == .4)
+  #filter(k == 19) 
 
 ggplot(df_box_score_choice, aes(x = line, y = line_delta)) +
   ck_theme() +
@@ -997,7 +1013,7 @@ ggplot(df_box_score_choice, aes(x = line, y = line_delta)) +
   facet_wrap(vars(season)) + 
   geom_smooth() + 
   geom_abline(intercept=0, slope=0)
-ggsave("2025_03_02_aelo_19_line_vs_line_delta.png", width = 12, height = 8)
+ggsave("2025_03_02_aelo_k17_l4_line_vs_line_delta.png", width = 12, height = 8)
 #ggsave("2025_02_28_line_based_19_line_vs_line_delta.png", width = 12, height = 8)
 
 
@@ -1074,13 +1090,16 @@ ggplot(df_box_score_filter, aes(x = line, y = delta)) +
 
 # Summarize the log loss and RMSE by each group
 df_summarize_line_year <- df_box_score_all %>%
-  group_by(season, k) %>%
+  group_by(season, k, l) %>%
   summarize(logloss = mean(logloss),
             RMSE = mean(sq_error) ^ .5)
 df_summarize_line <- df_box_score_all %>%
-  group_by(k) %>%
+  group_by(k, l) %>%
   summarize(logloss = mean(logloss),
             RMSE = mean(sq_error) ^ .5)
+
+
+
 
 ggplot(df_summarize_line, aes(x = k, y = logloss)) + geom_point()
 ggplot(df_summarize_line, aes(x = k, y = RMSE)) + geom_point()

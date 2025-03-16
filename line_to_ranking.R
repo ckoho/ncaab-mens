@@ -20,8 +20,11 @@ df_teams <-  vroom(
   "C:/Users/ckoho/Documents/Inputs/NCAA/teams_pr_debug_tmp.csv", 
   altrep = FALSE)
 
-
-
+################################################################################
+### Below here is all NFL testing data to debug the code. Will put the NCAA/ ###
+### NBA/WNBA data in different file with cleaner functions.                  ###
+### TO DO: Create basketball specific one.                                   ###
+################################################################################
 
 #############################
 ###NFL Files  HCA = 1.5   ###
@@ -38,10 +41,7 @@ df_teams <-  vroom(
 #home court advantage NFL
 #https://sportsbook.draftkings.com/nfl-odds-week-3
 hca <- 1.5
-#hca <- 2
-#hca <- 2.5
 
-j <- 1
 
 for (j in 1:100) {
   for (i in 1:nrow(df_lines)) {
@@ -133,10 +133,13 @@ for (j in 2:4){
 
 
 
-df_compare %>%
+df_weekly_summary <- df_compare %>%
   group_by(weeks) %>%
   summarize(error = mean(abs_delta),
             max = max(abs_delta))
+
+write_csv(df_weekly_summary, 
+          "C:/Users/ckoho/Documents/Inputs/NCAA/NFL_lines/num_weeks_comparison_summary.csv")
 
 #Get data on how many iterations are needed to get accurate predictions.
 df_compare <- NULL
@@ -178,58 +181,15 @@ write_csv(df_summary,
           "C:/Users/ckoho/Documents/Inputs/NCAA/NFL_lines/4weeks_iteration_summary.csv")
 
 
-df_compare <- NULL
-for (j in 1:100){
-  df_games_to_predict <- vroom(
-    "C:/Users/ckoho/Documents/Inputs/NCAA/line_nfl_5.csv", 
-    altrep = FALSE)
-  df_teams <- vroom(paste0(
-    "C:/Users/ckoho/Documents/Inputs/NCAA/NFL_lines/", j , "_nfl_week2_ratings.csv"), 
-    altrep = FALSE)
-  df_games_to_predict$prediction <- 0
-  for (i in 1:nrow(df_games_to_predict)) {
-    team1 = df_games_to_predict[[i, "team1"]]
-    team1_rating = df_teams[[which(df_teams == team1,
-                                   arr.ind = TRUE)[1], "Rating"]]
-    team2 = df_games_to_predict[[i, "team2"]]
-    team2_rating = df_teams[[which(df_teams == team2,
-                                   arr.ind = TRUE)[1], "Rating"]]
-    pred_spread <- team1_rating - hca - team2_rating
-    df_games_to_predict[[i, "prediction"]] <- pred_spread
-    
-  }
-  df_games_to_predict <- df_games_to_predict %>%
-    mutate(error = abs(Spread - prediction),
-           iteration = j)
-  df_compare <- df_compare %>%
-    bind_rows(df_games_to_predict)
-  
-}
-df_summary <- df_compare %>%
-  group_by(iteration) %>%
-  summarize(mean = mean(error),
-            max = max(error))
-
-
-ggplot(df_summary, aes(iteration, mean)) + geom_point()
-write_csv(df_summary, 
-          "C:/Users/ckoho/Documents/Inputs/NCAA/NFL_lines/2weeks_iteration_summary.csv")
-
-
-
-
 # Look at 2 weeks with preset (bayes) values.
+# Not a whole lot better.
 df_lines <-  vroom("C:/Users/ckoho/Documents/Inputs/NCAA/line_nfl_2.csv", 
   altrep = FALSE)
 df_teams <-  vroom(
   "C:/Users/ckoho/Documents/Inputs/NCAA/teams_nfl_bayes.csv", 
   altrep = FALSE)
 
-#hca <- 1.5
-hca <- 2
-#hca <- 2.5
-
-j <- 1
+hca <- 1.5
 
 for (j in 1:100) {
   for (i in 1:nrow(df_lines)) {
@@ -359,7 +319,7 @@ df_compare %>%
 
 
 #############################
-###NFL Files  HCA = 2   ###
+### NFL Files  HCA =2    ###
 #############################
 df_lines <-  vroom(
   #  "C:/Users/ckoho/Documents/Inputs/NCAA/line_nfl_2.csv", 
@@ -462,7 +422,6 @@ for (j in 2:4){
 }
 
 
-#CKOHOUTEK TODO summarize the data 
 df_hca_2_summary<- df_compare %>%
   group_by(weeks) %>%
   summarize(error = mean(abs_delta),
@@ -471,3 +430,6 @@ df_hca_2_summary<- df_compare %>%
 write_csv(df_lines, paste0(
   "C:/Users/ckoho/Documents/Inputs/NCAA/NFL_summary_hca2.csv"
   ))
+
+
+
